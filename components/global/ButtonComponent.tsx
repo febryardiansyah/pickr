@@ -80,7 +80,7 @@ export function Button({
   return (
     <button
       type={type}
-  className={`${baseClasses} ${shadowClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`${baseClasses} ${shadowClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       onClick={onClick}
       disabled={disabled}
     >

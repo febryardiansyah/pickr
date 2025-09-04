@@ -2,8 +2,8 @@
 
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { useEffect } from "react";
-import HomeComponent from "./components/module/home/HomeComponent";
-import BottomNavLayout from "./layout/BottomNavLayout";
+import HomeComponent from "../components/module/home/HomeComponent";
+import BottomNavLayout from "../layout/BottomNavLayout";
 
 export default function App() {
   const { setFrameReady, isFrameReady } = useMiniKit();

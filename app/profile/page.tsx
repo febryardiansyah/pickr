@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import BottomNavLayout from "../layout/BottomNavLayout";
+import BottomNavLayout from "../../layout/BottomNavLayout";
 
 export default function ProfilePage() {
   return (
