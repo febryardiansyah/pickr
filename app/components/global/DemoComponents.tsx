@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import {
   Transaction,
@@ -16,100 +16,8 @@ import {
   TransactionStatus,
 } from "@coinbase/onchainkit/transaction";
 import { useNotification } from "@coinbase/onchainkit/minikit";
-
-type ButtonProps = {
-  children: ReactNode;
-  variant?: "primary" | "secondary" | "outline" | "ghost";
-  size?: "sm" | "md" | "lg";
-  className?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  type?: "button" | "submit" | "reset";
-  icon?: ReactNode;
-}
-
-export function Button({
-  children,
-  variant = "primary",
-  size = "md",
-  className = "",
-  onClick,
-  disabled = false,
-  type = "button",
-  icon,
-}: ButtonProps) {
-  const baseClasses =
-    "inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0052FF] disabled:opacity-50 disabled:pointer-events-none";
-
-  const variantClasses = {
-    primary:
-      "bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-[var(--app-background)]",
-    secondary:
-      "bg-[var(--app-gray)] hover:bg-[var(--app-gray-dark)] text-[var(--app-foreground)]",
-    outline:
-      "border border-[var(--app-accent)] hover:bg-[var(--app-accent-light)] text-[var(--app-accent)]",
-    ghost:
-      "hover:bg-[var(--app-accent-light)] text-[var(--app-foreground-muted)]",
-  };
-
-  const sizeClasses = {
-    sm: "text-xs px-2.5 py-1.5 rounded-md",
-    md: "text-sm px-4 py-2 rounded-lg",
-    lg: "text-base px-6 py-3 rounded-lg",
-  };
-
-  return (
-    <button
-      type={type}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {icon && <span className="flex items-center mr-2">{icon}</span>}
-      {children}
-    </button>
-  );
-}
-
-type CardProps = {
-  title?: string;
-  children: ReactNode;
-  className?: string;
-  onClick?: () => void;
-}
-
-function Card({
-  title,
-  children,
-  className = "",
-  onClick,
-}: CardProps) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (onClick && (e.key === "Enter" || e.key === " ")) {
-      e.preventDefault();
-      onClick();
-    }
-  };
-
-  return (
-    <div
-      className={`bg-[var(--app-card-bg)] backdrop-blur-md rounded-xl shadow-lg border border-[var(--app-card-border)] overflow-hidden transition-all hover:shadow-xl ${className} ${onClick ? "cursor-pointer" : ""}`}
-      onClick={onClick}
-      onKeyDown={onClick ? handleKeyDown : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      role={onClick ? "button" : undefined}
-    >
-      {title && (
-        <div className="px-5 py-3 border-b border-[var(--app-card-border)]">
-          <h3 className="text-lg font-medium text-[var(--app-foreground)]">
-            {title}
-          </h3>
-        </div>
-      )}
-      <div className="p-5">{children}</div>
-    </div>
-  );
-}
+import { Button } from "./ButtonComponent";
+import { Card } from "./CardComponent";
 
 type FeaturesProps = {
   setActiveTab: (tab: string) => void;
@@ -183,7 +91,7 @@ type IconProps = {
   name: "heart" | "star" | "check" | "plus" | "arrow-right";
   size?: "sm" | "md" | "lg";
   className?: string;
-}
+};
 
 export function Icon({ name, size = "md", className = "" }: IconProps) {
   const sizeClasses = {
@@ -283,7 +191,7 @@ type Todo = {
   id: number;
   text: string;
   completed: boolean;
-}
+};
 
 function TodoList() {
   const [todos, setTodos] = useState<Todo[]>([
@@ -386,33 +294,39 @@ function TodoList() {
   );
 }
 
-
 function TransactionCard() {
   const { address } = useAccount();
 
   // Example transaction call - sending 0 ETH to self
-  const calls = useMemo(() => address
-    ? [
-        {
-          to: address,
-          data: "0x" as `0x${string}`,
-          value: BigInt(0),
-        },
-      ]
-    : [], [address]);
+  const calls = useMemo(
+    () =>
+      address
+        ? [
+            {
+              to: address,
+              data: "0x" as `0x${string}`,
+              value: BigInt(0),
+            },
+          ]
+        : [],
+    [address],
+  );
 
   const sendNotification = useNotification();
 
-  const handleSuccess = useCallback(async (response: TransactionResponse) => {
-    const transactionHash = response.transactionReceipts[0].transactionHash;
+  const handleSuccess = useCallback(
+    async (response: TransactionResponse) => {
+      const transactionHash = response.transactionReceipts[0].transactionHash;
 
-    console.log(`Transaction successful: ${transactionHash}`);
+      console.log(`Transaction successful: ${transactionHash}`);
 
-    await sendNotification({
-      title: "Congratulations!",
-      body: `You sent your a transaction, ${transactionHash}!`,
-    });
-  }, [sendNotification]);
+      await sendNotification({
+        title: "Congratulations!",
+        body: `You sent your a transaction, ${transactionHash}!`,
+      });
+    },
+    [sendNotification],
+  );
 
   return (
     <Card title="Make Your First Transaction">
