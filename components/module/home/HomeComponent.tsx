@@ -20,6 +20,7 @@ export default function HomeComponent() {
               className="w-full"
               variant="primary"
               shadow={false}
+              onClick={() => router.push("/raffle/new")}
             >
               Create Raffle
             </Button>
