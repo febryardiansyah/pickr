@@ -1,19 +1,19 @@
 "use client";
 
 import React, { InputHTMLAttributes, forwardRef } from "react";
+import clsx from "clsx";
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   error?: string;
   helperText?: string;
   fullWidth?: boolean;
-}
+};
 
-// Shares the same glass + gradient language used in Button & BottomNav
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   (
     { label, error, helperText, className = "", fullWidth = true, ...rest },
-    ref
+    ref,
   ) => {
     const base = [
       "relative w-full",
@@ -34,7 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       : "hover:border-[color:rgba(99,102,241,0.4)]";
 
     return (
-      <div className={`${fullWidth ? "w-full" : ""} flex flex-col gap-1`}>
+      <div className={clsx(fullWidth && "w-full", "flex flex-col gap-1")}>
         {label && (
           <label className="text-xs font-medium tracking-wide text-[var(--app-foreground-muted)]">
             {label}
@@ -42,18 +42,21 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <input
           ref={ref}
-            className={`${base} ${errorClasses} ${className}`}
+          className={clsx(base, errorClasses, className)}
           {...rest}
         />
         {(helperText || error) && (
           <p
-            className={`text-[10px] mt-0.5 font-medium tracking-wide ${error ? "text-red-400" : "text-[var(--app-foreground-muted)]"}`}
+            className={clsx(
+              "text-[10px] mt-0.5 font-medium tracking-wide",
+              error ? "text-red-400" : "text-[var(--app-foreground-muted)]",
+            )}
           >
             {error || helperText}
           </p>
         )}
       </div>
     );
-  }
+  },
 );
 Input.displayName = "Input";

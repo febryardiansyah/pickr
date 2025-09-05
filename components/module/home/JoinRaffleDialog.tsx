@@ -5,10 +5,10 @@ import { Dialog } from "@/components/global/DialogComponent";
 import { Input } from "@/components/global/InputComponent";
 import { Button } from "@/components/global/ButtonComponent";
 
-interface JoinRaffleDialogProps {
+type JoinRaffleDialogProps = {
   open: boolean;
   onClose: () => void;
-}
+};
 
 export function JoinRaffleDialog({ open, onClose }: JoinRaffleDialogProps) {
   const [code, setCode] = useState("");
@@ -28,7 +28,7 @@ export function JoinRaffleDialog({ open, onClose }: JoinRaffleDialogProps) {
       await new Promise((res) => setTimeout(res, 650));
       console.log("Joining raffle with code:", code);
       onClose();
-  } catch {
+    } catch {
       setError("Failed to join. Try again.");
     } finally {
       setLoading(false);

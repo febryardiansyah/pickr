@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef } from "react";
+import clsx from "clsx";
 import { X } from "lucide-react";
 import { Button } from "./ButtonComponent";
 
-export interface DialogProps {
+export type DialogProps = {
   open: boolean;
   onClose: () => void;
   title?: string;
@@ -12,7 +13,7 @@ export interface DialogProps {
   children?: React.ReactNode;
   footer?: React.ReactNode;
   widthClass?: string; // allow custom width (defaults to max-w-md)
-}
+};
 
 export function Dialog({
   open,
@@ -31,7 +32,7 @@ export function Dialog({
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export function Dialog({
     // focus first focusable
     setTimeout(() => {
       const el = containerRef.current?.querySelector<HTMLElement>(
-        "button, input, textarea, select, a[href], [tabindex]:not([tabindex='-1'])"
+        "button, input, textarea, select, a[href], [tabindex]:not([tabindex='-1'])",
       );
       el?.focus();
     }, 10);
@@ -66,7 +67,10 @@ export function Dialog({
       />
       <div
         ref={containerRef}
-        className={`relative w-full ${widthClass} origin-top animate-fade-in rounded-xl border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(17,23,31,0.95)_0%,rgba(28,37,48,0.9)_60%,rgba(36,46,59,0.85)_100%)] backdrop-blur-2xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.65),0_6px_18px_-6px_rgba(0,0,0,0.55)] px-5 pt-5 pb-4 flex flex-col gap-4`}
+        className={clsx(
+          "relative w-full origin-top animate-fade-in rounded-xl border border-[var(--app-border)] bg-[linear-gradient(135deg,rgba(17,23,31,0.95)_0%,rgba(28,37,48,0.9)_60%,rgba(36,46,59,0.85)_100%)] backdrop-blur-2xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.65),0_6px_18px_-6px_rgba(0,0,0,0.55)] px-5 pt-5 pb-4 flex flex-col gap-4",
+          widthClass,
+        )}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1 pr-2">
