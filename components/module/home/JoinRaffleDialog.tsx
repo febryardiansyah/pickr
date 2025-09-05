@@ -8,9 +8,14 @@ import { Button } from "@/components/global/ButtonComponent";
 type JoinRaffleDialogProps = {
   open: boolean;
   onClose: () => void;
+  onSubmit: (code: string) => void;
 };
 
-export function JoinRaffleDialog({ open, onClose }: JoinRaffleDialogProps) {
+export function JoinRaffleDialog({
+  open,
+  onClose,
+  onSubmit,
+}: JoinRaffleDialogProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -58,17 +63,14 @@ export function JoinRaffleDialog({ open, onClose }: JoinRaffleDialogProps) {
             type="submit"
             disabled={loading}
             className="min-w-[90px]"
+            onClick={() => onSubmit(code)}
           >
             {loading ? "Joining..." : "Join"}
           </Button>
         </>
       }
     >
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col gap-4"
-        // keep the buttons working by placing them outside form via footer with type submit
-      >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="Raffle Code"
           placeholder="e.g. MOON-42XY"
