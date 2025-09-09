@@ -6,6 +6,12 @@ contract OnchainRaffle {
         owner = msg.sender;
     }
 
+    modifier onlyCreator(uint256 raffleId) {
+        require(_isRaffleExist(raffleId), "Raffle does not exist");
+        require(raffles[raffleId].creator == msg.sender, "Not authorized");
+        _;
+    }
+
     enum RaffleStatus {
         ACTIVE,
         INACTIVE,
@@ -67,6 +73,7 @@ contract OnchainRaffle {
             maxParticipant > minParticipant,
             "Max participant must be greater than min participant"
         );
+        require(minParticipant > 0, "Min participant must be greater than 0");
 
         raffles[nextRaffleId] = Raffle(
             msg.sender,
@@ -82,8 +89,8 @@ contract OnchainRaffle {
     }
 
     function deposit(uint256 raffleId) external payable {
+        require(_isRaffleExist(raffleId), "Raffle does not exist");
         Raffle storage raffle = raffles[raffleId];
-        require(_isRaffleExist(raffleId), "Raffle is not exist");
         require(
             raffle.status == RaffleStatus.ACTIVE,
             "Raffle is already inactive or started"
@@ -95,11 +102,15 @@ contract OnchainRaffle {
         emit Deposited(raffleId, msg.sender, msg.value);
     }
 
-    function startRaffle(uint256 raffleId) external {
+    function startRaffle(uint256 raffleId) external onlyCreator(raffleId) {
         Raffle storage raffle = raffles[raffleId];
         require(
             raffle.status == RaffleStatus.ACTIVE,
             "Raffle is already inactive or started"
+        );
+        require(
+            raffle.totalParticipant >= raffle.minParticipant,
+            "Not enough participants"
         );
 
         raffle.status = RaffleStatus.STARTED;
@@ -107,17 +118,26 @@ contract OnchainRaffle {
         emit RaffleStarted(raffleId);
     }
 
-    function winnerSelected(uint256 raffleId, address winner) external {
+    function winnerSelected(uint256 raffleId, address winner)
+        external
+        onlyCreator(raffleId)
+    {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.status == RaffleStatus.STARTED, "Raffle is not started");
+        require(winner != address(0), "Invalid winner");
+        require(hasJoined[raffleId][winner], "Winner not a participant");
+
+        uint256 prize = raffle.balance;
+        require(prize > 0, "No prize balance");
 
         winners[raffleId] = winner;
         raffle.status = RaffleStatus.INACTIVE;
+        raffle.balance = 0;
 
-        (bool ok, ) = payable(winner).call{value: raffle.balance}("");
+        (bool ok, ) = payable(winner).call{value: prize}("");
         require(ok, "Winner payout failure");
 
-        emit WinnerSelected(raffleId, winner, raffle.balance);
+        emit WinnerSelected(raffleId, winner, prize);
     }
 
     function raffleParticipants(uint256 raffleId)
@@ -129,6 +149,7 @@ contract OnchainRaffle {
     }
 
     function joinRaffle(uint256 raffleId) external {
+        require(_isRaffleExist(raffleId), "Raffle does not exist");
         Raffle storage raffle = raffles[raffleId];
         require(
             raffle.creator != msg.sender,
@@ -154,6 +175,7 @@ contract OnchainRaffle {
     }
 
     function leaveRaffle(uint256 raffleId) external {
+        require(_isRaffleExist(raffleId), "Raffle does not exist");
         Raffle storage raffle = raffles[raffleId];
         require(
             raffle.status == RaffleStatus.ACTIVE,
@@ -177,21 +199,21 @@ contract OnchainRaffle {
         emit LeaveRaffle(raffleId, msg.sender);
     }
 
-    function claimReward(uint256 raffleId) external {
+    function closeRaffle(uint256 raffleId) external onlyCreator(raffleId) {
         Raffle storage raffle = raffles[raffleId];
         require(
-            raffle.status == RaffleStatus.STARTED,
-            "Raffle is not started yet"
+            raffle.status == RaffleStatus.ACTIVE,
+            "Raffle can only be closed before start"
         );
 
-        emit Claimed(raffleId, msg.sender, 0);
-    }
-
-    function closeRaffle(uint256 raffleId) external {
-        Raffle storage raffle = raffles[raffleId];
-        require(raffle.creator == msg.sender, "You are not the host");
-
+        uint256 refund = raffle.balance;
+        raffle.balance = 0;
         raffle.status = RaffleStatus.INACTIVE;
+
+        if (refund > 0) {
+            (bool ok, ) = payable(raffle.creator).call{value: refund}("");
+            require(ok, "Refund failure");
+        }
 
         emit RaffleClosed(raffleId);
     }
