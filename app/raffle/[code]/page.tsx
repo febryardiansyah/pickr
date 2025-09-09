@@ -1,44 +1,75 @@
 "use client";
 
 import BottomNavLayout from "@/layout/BottomNavLayout";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/global/ButtonComponent";
 import { Card } from "@/components/global/CardComponent";
 import { Dialog } from "@/components/global/DialogComponent";
 import { Input } from "@/components/global/InputComponent";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 
 export default function RafflePage() {
   const router = useRouter();
   const params = useParams();
-  const raffleCode = params?.code;
+  const raffleCode = useMemo(() => (params?.code as string) || "", [params]);
 
-  const host = {
-    name: "Host User",
-    address: "0x1234...ABCD",
+  const [loading, setLoading] = useState(true);
+  type Participant = { id: string; name?: string; address: string };
+  type RaffleDoc = {
+    title: string;
+    totalReward: number;
+    participants: Participant[];
+    host?: { name?: string; address?: string };
   };
-  const [participants] = useState([
-    { id: 1, name: "Alice", address: "0xA1c3...1111" },
-    { id: 2, name: "Bob", address: "0xB0b0...2222" },
-    { id: 3, name: "Charlie", address: "0xC0de...3333" },
-    { id: 4, name: "David", address: "0xD4v1...4444" },
-    { id: 5, name: "Eve", address: "0xE7e7...5555" },
-    { id: 6, name: "Frank", address: "0xF47k...6666" },
-    { id: 7, name: "Grace", address: "0xG4c3...7777" },
-    { id: 8, name: "Henry", address: "0xH3n7...8888" },
-    { id: 9, name: "Ivy", address: "0x1v7y...9999" },
-    { id: 10, name: "Jack", address: "0xJ4ck...AAAA" },
-  ] as { id: number; name: string; address: string }[]);
+  const [raffle, setRaffle] = useState<RaffleDoc | null>(null);
 
-  const [totalReward, setTotalReward] = useState<number>(250); // USDC
+  const [participants, setParticipants] = useState<
+    { id: string; name?: string; address: string }[]
+  >([]);
+  const [totalReward, setTotalReward] = useState<number>(0); // USDC
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [starting, setStarting] = useState(false);
 
-  const handleDeposit = () => {
+  useEffect(() => {
+    if (!raffleCode) return;
+    setLoading(true);
+    const ref = doc(db, "raffles", raffleCode);
+    const unsub = onSnapshot(ref, (snap) => {
+      if (!snap.exists()) {
+        setRaffle(null);
+        setParticipants([]);
+        setTotalReward(0);
+        setLoading(false);
+        return;
+      }
+      const data = snap.data() as Partial<RaffleDoc>;
+      setRaffle({
+        title: data.title || `Raffle #${raffleCode}`,
+        totalReward: data.totalReward || 0,
+        participants: (data.participants as Participant[]) || [],
+        host: data.host || undefined,
+      });
+      setParticipants(
+        ((data.participants as Participant[]) || []).map((p, idx) => ({
+          id: p.id || String(idx + 1),
+          name: p.name,
+          address: p.address,
+        }))
+      );
+      setTotalReward(data.totalReward || 0);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [raffleCode]);
+
+  const handleDeposit = async () => {
     const v = Number(depositAmount);
-    if (!isNaN(v) && v > 0) {
-      setTotalReward((prev) => prev + v);
+    if (!isNaN(v) && v > 0 && raffleCode) {
+      const ref = doc(db, "raffles", raffleCode);
+      await updateDoc(ref, { totalReward: (totalReward || 0) + v });
       setDepositAmount("");
       setDepositOpen(false);
     }
@@ -86,14 +117,10 @@ export default function RafflePage() {
             </Button>
             <div className="flex flex-col gap-1">
               <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
-                Raffle #{raffleCode}
+                {loading ? "Loading raffle..." : raffle?.title || `Raffle #${raffleCode}`}
               </h1>
               <p className="text-xs text-[var(--app-foreground-muted)]">
-                Hosted by{" "}
-                <span className="text-[var(--app-foreground)] font-medium">
-                  {host.name}
-                </span>{" "}
-                ({host.address})
+                {raffle?.host?.name || "Hosted raffle"}
               </p>
             </div>
           </div>
@@ -136,10 +163,10 @@ export default function RafflePage() {
                 Participants
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {participants.length}
+                {loading ? "-" : participants.length}
               </span>
               <span className="text-[11px] text-[var(--app-foreground-muted)] mt-auto">
-                Waiting for more entrants...
+                {loading ? "Loading..." : "Waiting for more entrants..."}
               </span>
             </div>
           </Card>
@@ -148,9 +175,9 @@ export default function RafflePage() {
         {/* Participants List */}
         <Card title="Participants" className="">
           <ul className="divide-y divide-[var(--app-card-border)] -mx-5 mt-[-1rem] mb-[-1rem]">
-            {participants.map((p) => (
+      {participants.map((p) => (
               <li
-                key={p.id}
+        key={p.id}
                 className="px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
               >
                 <div className="flex flex-col">
@@ -166,7 +193,7 @@ export default function RafflePage() {
                 </span>
               </li>
             ))}
-            {participants.length === 0 && (
+      {participants.length === 0 && !loading && (
               <li className="px-5 py-6 text-center text-sm text-[var(--app-foreground-muted)]">
                 No participants yet.
               </li>

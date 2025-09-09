@@ -6,6 +6,8 @@ import { Button } from "@/components/global/ButtonComponent";
 import { Input } from "@/components/global/InputComponent";
 import { Card } from "@/components/global/CardComponent";
 import { useRouter } from "next/navigation";
+import { db } from "@/lib/firebase";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 export default function CreateRafflePage() {
   const router = useRouter();
@@ -34,11 +36,21 @@ export default function CreateRafflePage() {
     if (!isValid()) return;
     try {
       setSubmitting(true);
-      // Placeholder: simulate on-chain deployment / API call
-      await new Promise((r) => setTimeout(r, 1200));
-      // Mock a generated raffle code (could be a tx hash / id)
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      router.push(`/raffle/${code}`);
+      const docRef = await addDoc(collection(db, "raffles"), {
+        title: form.title.trim(),
+        ticketPrice: Number(form.ticketPrice),
+        maxParticipants: Number(form.maxParticipants),
+        closeAt: form.closeAt ? new Date(form.closeAt).toISOString() : null,
+        rewardSymbol: form.rewardSymbol,
+        initialReward: form.initialReward ? Number(form.initialReward) : 0,
+        totalReward: form.initialReward ? Number(form.initialReward) : 0,
+        participants: [],
+        createdAt: serverTimestamp(),
+        status: "open",
+      });
+      router.push(`/raffle/${docRef.id}`);
+    } catch (e) {
+      console.error("Error creating raffle:", e);
     } finally {
       setSubmitting(false);
     }
