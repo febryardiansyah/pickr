@@ -28,3 +28,11 @@ export async function generateUniqueCode(length = 6): Promise<string> {
 
   return code;
 }
+
+export function shortAddress(address?: string): string {
+  if (!address) return "Anonymous";
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export const ZERO_ADDRESS =
+  "0x0000000000000000000000000000000000000000" as const;

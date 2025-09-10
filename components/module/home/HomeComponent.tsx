@@ -4,15 +4,20 @@ import React, { useState } from "react";
 import { Button } from "../../global/ButtonComponent";
 import { JoinRaffleDialog } from "./JoinRaffleDialog";
 import { useRouter } from "next/navigation";
+import { useAccount } from "wagmi";
+import { shortAddress } from "@/lib/utils";
 
 export default function HomeComponent() {
   const [showJoin, setShowJoin] = useState(false);
   const router = useRouter();
+  const { address } = useAccount();
 
   return (
     <>
       <div className="flex flex-col gap-4">
-        <div className="text-lg font-semibold mt-4">Gm febryards!</div>
+        <div className="text-lg font-semibold mt-4">
+          GM {shortAddress(address)}!
+        </div>
         <div className="w-full flex items-center justify-center">
           <div className="grid grid-cols-2 gap-6 w-full h-full max-w-md">
             <Button

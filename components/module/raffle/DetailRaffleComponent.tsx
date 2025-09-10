@@ -11,6 +11,7 @@ import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import abi from "@/contracts/abi.json";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
+import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
 
 type Participant = { id: string; name?: string; address: string };
 type RaffleDoc = {
@@ -26,7 +27,7 @@ export default function DetailRaffleComponent() {
   const raffleCode = useMemo(() => (params?.code as string) || "", [params]);
   const CONTRACT_ADDRESS = useMemo(
     () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
-    []
+    [],
   );
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -40,7 +41,6 @@ export default function DetailRaffleComponent() {
   const [starting, setStarting] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Winner reveal dialogs state
   const [revealOpen, setRevealOpen] = useState(false); // loading/rolling dialog
   const [resultOpen, setResultOpen] = useState(false); // winner result dialog
   const [rolling, setRolling] = useState(false);
@@ -48,8 +48,6 @@ export default function DetailRaffleComponent() {
   const [rollingIndex, setRollingIndex] = useState<number | null>(null);
   const [finalWinner, setFinalWinner] = useState<string | null>(null);
   const [winnerError, setWinnerError] = useState<string | null>(null);
-  // zero address to detect unset winner
-  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
   const {
     data: onchainRaffle,
@@ -64,7 +62,6 @@ export default function DetailRaffleComponent() {
     query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
   });
 
-  // Read on-chain participants to detect if current user already joined
   const { data: onchainParticipants, refetch: refetchParticipants } =
     useReadContract({
       chainId: 84532,
@@ -75,7 +72,6 @@ export default function DetailRaffleComponent() {
       query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
     });
 
-  // Read on-chain winner via public mapping getter
   const { data: onchainWinner, refetch: refetchWinner } = useReadContract({
     chainId: 84532,
     abi,
@@ -102,13 +98,13 @@ export default function DetailRaffleComponent() {
         number | bigint,
         bigint,
         bigint,
-        bigint
+        bigint,
       ];
       const statusIndex = Number(tuple[2] ?? 0);
       return {
         creator: tuple[0],
         balanceEth: formatEther(
-          typeof tuple[1] === "bigint" ? (tuple[1] as bigint) : BigInt(0)
+          typeof tuple[1] === "bigint" ? (tuple[1] as bigint) : BigInt(0),
         ),
         statusIndex,
         max: typeof tuple[3] === "bigint" ? Number(tuple[3]) : 0,
@@ -126,17 +122,12 @@ export default function DetailRaffleComponent() {
     return onchain ? (map[onchain.statusIndex] ?? "UNKNOWN") : undefined;
   }, [onchain]);
 
-  const shortAddr = (addr?: string) =>
-    addr && addr.startsWith("0x")
-      ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
-      : addr || "-";
-
   const isCreator = useMemo(
     () =>
       address && onchain?.creator
         ? address.toLowerCase() === onchain.creator.toLowerCase()
         : false,
-    [address, onchain?.creator]
+    [address, onchain?.creator],
   );
 
   const alreadyJoined = useMemo(() => {
@@ -153,12 +144,13 @@ export default function DetailRaffleComponent() {
       list.map((addr, idx) => ({
         id: String(idx + 1),
         address: addr as string,
-      }))
+      })),
     );
   }, [onchainParticipants]);
 
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   const handleJoin = async () => {
     if (
@@ -210,6 +202,25 @@ export default function DetailRaffleComponent() {
     }
   };
 
+  const handleCloseRaffle = async () => {
+    if (!CONTRACT_ADDRESS || !raffleCode || !isCreator || closing) return;
+    if (!onchain || onchain.statusIndex !== 0) return; // only when ACTIVE
+    try {
+      setClosing(true);
+      await writeContractAsync({
+        abi,
+        address: CONTRACT_ADDRESS,
+        functionName: "closeRaffle",
+        args: [raffleCode],
+      });
+      await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+    } catch (e) {
+      console.error("closeRaffle failed", e);
+    } finally {
+      setClosing(false);
+    }
+  };
+
   useEffect(() => {
     if (!raffleCode) return;
     setLoading(true);
@@ -255,10 +266,7 @@ export default function DetailRaffleComponent() {
         functionName: "startRaffle",
         args: [raffleCode],
       });
-      await Promise.allSettled([
-        refetchOnchain?.(),
-        refetchParticipants?.(),
-      ]);
+      await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
       console.log("Raffle started for:", raffleCode);
       // After starting, open winner selection dialog and animate selection
       if (participants.length > 0) {
@@ -276,7 +284,7 @@ export default function DetailRaffleComponent() {
     setWinnerError(null);
     setFinalWinner(null);
     setCountdown(5);
-  setRevealOpen(true);
+    setRevealOpen(true);
     setRolling(true);
 
     let secs = 5;
@@ -317,18 +325,14 @@ export default function DetailRaffleComponent() {
       } catch (e) {
         console.error("winnerSelected failed", e);
         const err = e as unknown as { shortMessage?: string; message?: string };
-        const msg = err?.shortMessage || err?.message || "Failed to select winner";
+        const msg =
+          err?.shortMessage || err?.message || "Failed to select winner";
         setWinnerError(msg);
       }
-      // Switch from loading dialog to result dialog
       setRevealOpen(false);
       setResultOpen(true);
     }, 5000);
-
-    // Prevent closing while rolling; cleanup happens automatically on finalize
   };
-
-  // No event scan needed since we have a public getter now
 
   const handleCopyCode = async () => {
     if (!raffleCode) return;
@@ -389,9 +393,6 @@ export default function DetailRaffleComponent() {
                   ? "Loading raffle..."
                   : raffle?.title || `Raffle #${raffleCode}`}
               </h1>
-              <p className="text-xs text-[var(--app-foreground-muted)]">
-                {raffle?.host?.name || "Hosted raffle"}
-              </p>
               <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--app-foreground-muted)]">
                 <span>Code:</span>
                 <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
@@ -415,7 +416,14 @@ export default function DetailRaffleComponent() {
                       strokeLinejoin="round"
                       className="w-4 h-4"
                     >
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <rect
+                        x="9"
+                        y="9"
+                        width="13"
+                        height="13"
+                        rx="2"
+                        ry="2"
+                      ></rect>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                     </svg>
                   }
@@ -430,7 +438,7 @@ export default function DetailRaffleComponent() {
                     <span className="inline-flex items-center gap-1">
                       Creator:{" "}
                       <span className="font-mono">
-                        {onchainLoading ? "…" : shortAddr(onchain?.creator)}
+                        {onchainLoading ? "…" : shortAddress(onchain?.creator)}
                       </span>
                     </span>
                     <span className="inline-flex items-center gap-1">
@@ -441,8 +449,8 @@ export default function DetailRaffleComponent() {
                       {onchainLoading
                         ? "…"
                         : onchain
-                        ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
-                        : "-"}
+                          ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
+                          : "-"}
                     </span>
                   </>
                 ) : (
@@ -453,15 +461,15 @@ export default function DetailRaffleComponent() {
           </div>
         </div>
 
-  {/* Summary Cards */}
-  <div className="grid grid-cols-2 gap-4">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-4">
           <Card className="p-4 col-span-2 sm:col-span-1">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--app-foreground-muted)]">
                 Total Rewards (ETH)
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {onchainLoading ? "-" : onchain?.balanceEth ?? "0"}
+                {onchainLoading ? "-" : (onchain?.balanceEth ?? "0")}
               </span>
               <div className="flex gap-2 mt-3">
                 {!isCreator && (
@@ -477,8 +485,8 @@ export default function DetailRaffleComponent() {
                       {alreadyJoined
                         ? "Joined"
                         : joining
-                        ? "Joining..."
-                        : "Join Raffle"}
+                          ? "Joining..."
+                          : "Join Raffle"}
                     </Button>
                     <Button
                       size="sm"
@@ -493,19 +501,29 @@ export default function DetailRaffleComponent() {
                   </>
                 )}
                 {isCreator && (
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={
-                      starting ||
-                      !onchain ||
-                      onchain.statusIndex !== 0 /* ACTIVE */ ||
-                      onchain.total < onchain.min
-                    }
-                    onClick={handleStartRaffle}
-                  >
-                    {starting ? "Starting..." : "Start Raffle"}
-                  </Button>
+                  <div className="flex flex-col gap-2 flex-grow">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={
+                        starting ||
+                        !onchain ||
+                        onchain.statusIndex !== 0 ||
+                        onchain.total < onchain.min
+                      }
+                      onClick={handleStartRaffle}
+                    >
+                      {starting ? "Starting..." : "Start Raffle"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={!onchain || onchain.statusIndex !== 0 || closing}
+                      onClick={handleCloseRaffle}
+                    >
+                      {closing ? "Closing..." : "Close Raffle"}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -516,7 +534,7 @@ export default function DetailRaffleComponent() {
                 Participants
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {loading ? "-" : onchain?.total ?? participants.length}
+                {loading ? "-" : (onchain?.total ?? participants.length)}
               </span>
               <span className="text-[11px] text-[var(--app-foreground-muted)] mt-auto">
                 {loading ? "Loading..." : "Waiting for more entrants..."}
@@ -524,6 +542,48 @@ export default function DetailRaffleComponent() {
             </div>
           </Card>
         </div>
+
+        {/* Winner Card */}
+        <Card className="px-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-[var(--app-foreground-muted)]">
+              Winner
+            </span>
+            <div className="flex flex-col items-start gap-2">
+              <span className="font-mono text-sm text-[var(--app-foreground)]">
+                {(() => {
+                  const chainWinner = onchainWinner as
+                    | `0x${string}`
+                    | undefined;
+                  const hasChainWinner =
+                    chainWinner && chainWinner !== ZERO_ADDRESS;
+                  const winner = hasChainWinner ? chainWinner : finalWinner;
+                  return winner || "Not selected";
+                })()}
+              </span>
+              {(() => {
+                const chainWinner = onchainWinner as `0x${string}` | undefined;
+                const hasChainWinner =
+                  chainWinner && chainWinner !== ZERO_ADDRESS;
+                const winner = hasChainWinner ? chainWinner : finalWinner;
+                return winner ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    shadow={false}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(winner as string);
+                      } catch {}
+                    }}
+                  >
+                    Copy
+                  </Button>
+                ) : null;
+              })()}
+            </div>
+          </div>
+        </Card>
 
         {/* Participants List */}
         <Card title="Participants" className="">
@@ -533,14 +593,9 @@ export default function DetailRaffleComponent() {
                 key={p.id}
                 className="px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
               >
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-[var(--app-foreground)]">
-                    {p.name || shortAddr(p.address)}
-                  </span>
-                  <span className="text-[11px] font-mono text-[var(--app-foreground-muted)]">
-                    {p.address}
-                  </span>
-                </div>
+                <span className="text-[11px] font-mono text-[var(--app-foreground-muted)]">
+                  {p.address}
+                </span>
                 <span className="text-[10px] uppercase tracking-wide text-[var(--app-foreground-muted)]">
                   Joined
                 </span>
@@ -552,50 +607,6 @@ export default function DetailRaffleComponent() {
               </li>
             )}
           </ul>
-        </Card>
-
-        {/* Winner Card */}
-        <Card className="p-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wide text-[var(--app-foreground-muted)]">
-              Winner
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-[var(--app-foreground)]">
-                {(() => {
-                  const chainWinner = onchainWinner as `0x${string}` | undefined;
-                  const hasChainWinner = chainWinner && chainWinner !== ZERO_ADDRESS;
-                  const winner = hasChainWinner ? chainWinner : finalWinner;
-                  return winner || "Not selected";
-                })()}
-              </span>
-              {(() => {
-                const chainWinner = onchainWinner as `0x${string}` | undefined;
-                const hasChainWinner = chainWinner && chainWinner !== ZERO_ADDRESS;
-                const winner = hasChainWinner ? chainWinner : finalWinner;
-                return winner ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(winner as string);
-                    } catch {}
-                  }}
-                >
-                  Copy
-                </Button>
-                ) : null;
-              })()}
-            </div>
-            <span className="text-[11px] text-[var(--app-foreground-muted)]">
-              {onchain?.statusIndex === 1
-                ? "Raffle ended"
-                : onchain?.statusIndex === 2
-                ? "Raffle started"
-                : "Raffle active"}
-            </span>
-          </div>
         </Card>
       </div>
 
@@ -652,7 +663,7 @@ export default function DetailRaffleComponent() {
             </div>
             <div className="h-10 px-3 inline-flex items-center rounded border border-[var(--app-card-border)] bg-[var(--app-card)] font-mono text-[var(--app-foreground)]">
               {rollingIndex !== null
-                ? shortAddr(participants[rollingIndex]?.address)
+                ? shortAddress(participants[rollingIndex]?.address)
                 : "Shuffling..."}
             </div>
           </div>
@@ -669,12 +680,16 @@ export default function DetailRaffleComponent() {
         open={resultOpen}
         onClose={() => setResultOpen(false)}
         title={winnerError ? "Selection Failed" : "Winner Selected"}
-        description={winnerError ? winnerError : "Congratulations to the winner!"}
+        description={
+          winnerError ? winnerError : "Congratulations to the winner!"
+        }
       >
         <div className="flex flex-col gap-4">
           {finalWinner && !winnerError ? (
             <>
-              <div className="text-sm text-[var(--app-foreground-muted)]">Winner Address</div>
+              <div className="text-sm text-[var(--app-foreground-muted)]">
+                Winner Address
+              </div>
               <div className="h-10 px-3 inline-flex items-center rounded border border-[var(--app-card-border)] bg-[var(--app-card)] font-mono text-[var(--app-foreground)]">
                 {finalWinner}
               </div>
@@ -698,7 +713,11 @@ export default function DetailRaffleComponent() {
                 Copy address
               </Button>
             )}
-            <Button size="sm" variant="primary" onClick={() => setResultOpen(false)}>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setResultOpen(false)}
+            >
               Close
             </Button>
           </div>
