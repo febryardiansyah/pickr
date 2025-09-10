@@ -7,20 +7,20 @@ import { Input } from "@/components/global/InputComponent";
 import { Card } from "@/components/global/CardComponent";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { serverTimestamp, setDoc, doc } from "firebase/firestore";
 import abi from "@/contracts/abi.json";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
-import { parseEther, parseEventLogs } from "viem";
+import { useAccount, useWriteContract } from "wagmi";
+import { parseEther } from "viem";
+import { generateUniqueCode } from "@/lib/utils";
 
 export default function CreateRafflePage() {
   const router = useRouter();
   const { address } = useAccount();
-  const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
   const CONTRACT_ADDRESS = useMemo(
-    () => (process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined),
-    []
+    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    [],
   );
 
   const [form, setForm] = useState({
@@ -51,46 +51,33 @@ export default function CreateRafflePage() {
       const max = BigInt(Number(form.maxParticipants));
       const min = BigInt(Number(form.minParticipants));
       const value = parseEther(form.initialDepositEth);
+      const code = await generateUniqueCode();
 
-      const hash = await writeContractAsync({
+       await writeContractAsync({
+        chainId: 84532,
         address: CONTRACT_ADDRESS,
         abi,
         functionName: "createRaffle",
-        args: [max, min],
+        args: [max, min, code],
         value,
       });
 
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
-      const logs = parseEventLogs({
-        abi,
-        logs: receipt.logs,
-        eventName: "RaffleCreated",
-      });
-
-      const createdLog = logs[0];
-      const hasArgsId = (x: unknown): x is { args: { id: bigint } } => {
-        if (!x || typeof x !== "object") return false;
-        const rec = x as Record<string, unknown>;
-        const args = rec.args as Record<string, unknown> | undefined;
-        return !!args && typeof args.id === "bigint";
-      };
-      const raffleId = hasArgsId(createdLog) ? createdLog.args.id : undefined;
-
-      const docRef = await addDoc(collection(db, "raffles"), {
+      await setDoc(doc(db, "raffles", code), {
         title: form.title.trim(),
         maxParticipants: Number(form.maxParticipants),
         minParticipants: Number(form.minParticipants),
         initialDepositEth: form.initialDepositEth,
-        raffleId: raffleId !== undefined ? raffleId.toString() : null,
+        code: code,
         host: address ? { address } : null,
         participants: [],
         createdAt: serverTimestamp(),
-        status: "open",
+        status: 'open',
       });
 
-      router.push(`/raffle/${docRef.id}`);
+      router.push(`/raffle/${code}`);
     } catch (e) {
       console.error("Error creating raffle:", e);
+      setSubmitting(false);
     } finally {
       setSubmitting(false);
     }
