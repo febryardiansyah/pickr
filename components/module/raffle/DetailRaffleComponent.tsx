@@ -12,6 +12,7 @@ import abi from "@/contracts/abi.json";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
+import { ArrowLeft, Copy, LinkIcon, RefreshCcw } from "lucide-react";
 
 type Participant = { id: string; name?: string; address: string };
 type RaffleDoc = {
@@ -48,6 +49,7 @@ export default function DetailRaffleComponent() {
   const [rollingIndex, setRollingIndex] = useState<number | null>(null);
   const [finalWinner, setFinalWinner] = useState<string | null>(null);
   const [winnerError, setWinnerError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     data: onchainRaffle,
@@ -357,11 +359,36 @@ export default function DetailRaffleComponent() {
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      const link = window?.location?.href;
+      if (!link) return;
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error("Copy link failed", e);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await Promise.allSettled([
+        refetchOnchain?.(),
+        refetchParticipants?.(),
+        refetchWinner?.(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-6 pb-24 animate-fade-in">
         <div className="flex flex-col gap-3 pt-2">
-          <div className="flex items-start gap-3">
+          <div className="flex items-center justify-between gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -369,96 +396,119 @@ export default function DetailRaffleComponent() {
               onClick={() => router.push("/")}
               aria-label="Go back"
               icon={
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="w-4 h-4"
-                >
-                  <line x1="19" y1="12" x2="5" y2="12" />
-                  <polyline points="12 19 5 12 12 5" />
-                </svg>
+                <ArrowLeft className="w-4 h-4" />
               }
               className="px-2"
             >
               Back
             </Button>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
-                {loading
-                  ? "Loading raffle..."
-                  : raffle?.title || `Raffle #${raffleCode}`}
-              </h1>
-              <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--app-foreground-muted)]">
+            <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
+              {loading
+                ? "Loading raffle..."
+                : raffle?.title || `Raffle #${raffleCode}`}
+            </h1>
+            <span
+              className={
+                `px-2 py-0.5 rounded-full border text-[10px] ` +
+                (onchainLoading
+                  ? "opacity-60"
+                  : statusText === "ACTIVE"
+                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                    : statusText === "STARTED"
+                      ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
+                      : "bg-amber-500/10 text-amber-500 border-amber-500/30")
+              }
+            >
+              {onchainLoading ? "…" : statusText || "-"}
+            </span>
+          </div>
+
+          <Card title="Raffle Info" className="p-4">
+            <div className="flex flex-col gap-3">
+              {/* Code + Actions */}
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--app-foreground-muted)]">
                 <span>Code:</span>
                 <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
                   {raffleCode}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  shadow={false}
-                  className="px-2"
-                  onClick={handleCopyCode}
-                  aria-label="Copy raffle code"
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="w-4 h-4"
-                    >
-                      <rect
-                        x="9"
-                        y="9"
-                        width="13"
-                        height="13"
-                        rx="2"
-                        ry="2"
-                      ></rect>
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                    </svg>
-                  }
-                >
-                  {copied ? "Copied" : "Copy"}
-                </Button>
+                <div className="ml-1 inline-flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    shadow={false}
+                    className="px-2"
+                    onClick={handleCopyCode}
+                    aria-label="Copy raffle code"
+                    icon={<Copy className="w-4 h-4" />}
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    shadow={false}
+                    className="px-2"
+                    onClick={handleCopyLink}
+                    aria-label="Copy page link"
+                    icon={<LinkIcon className="w-4 h-4" />}
+                  >
+                    {copied ? "Copied" : "Copy Link"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    shadow={false}
+                    className="px-2"
+                    onClick={handleRefresh}
+                    aria-label="Refresh on-chain data"
+                    disabled={refreshing}
+                    icon={
+                      <RefreshCcw
+                        className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+                      />
+                    }
+                  >
+                    Refresh
+                  </Button>
+                </div>
+                <span className="sr-only" aria-live="polite">
+                  {copied ? "Copied to clipboard" : ""}
+                </span>
               </div>
-              {/* On-chain meta */}
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--app-foreground-muted)]">
+
+              <div className="flex flex-col gap-2 text-[11px] text-[var(--app-foreground-muted)]">
                 {CONTRACT_ADDRESS ? (
                   <>
-                    <span className="inline-flex items-center gap-1">
-                      Creator:{" "}
-                      <span className="font-mono">
-                        {onchainLoading ? "…" : shortAddress(onchain?.creator)}
+                    <div className="flex flex-col items-start gap-2">
+                      <span className="inline-flex items-center gap-1">
+                        Creator:{" "}
+                        <a
+                          href={`https://sepolia.basescan.org/address/${onchain?.creator}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono underline-offset-2 hover:underline text-[var(--app-foreground)]"
+                        >
+                          {onchainLoading
+                            ? "…"
+                            : shortAddress(onchain?.creator)}
+                        </a>
                       </span>
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      Status: {onchainLoading ? "…" : statusText || "-"}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      Participants:{" "}
-                      {onchainLoading
-                        ? "…"
-                        : onchain
-                          ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
-                          : "-"}
-                    </span>
+                      <span className="inline-flex items-center gap-1">
+                        Participants:{" "}
+                        {onchainLoading
+                          ? "…"
+                          : onchain
+                            ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
+                            : "-"}
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <span>Contract not configured</span>
                 )}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Summary Cards */}
@@ -518,7 +568,9 @@ export default function DetailRaffleComponent() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      disabled={!onchain || onchain.statusIndex !== 0 || closing}
+                      disabled={
+                        !onchain || onchain.statusIndex !== 0 || closing
+                      }
                       onClick={handleCloseRaffle}
                     >
                       {closing ? "Closing..." : "Close Raffle"}
@@ -534,7 +586,9 @@ export default function DetailRaffleComponent() {
                 Participants
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {loading ? "-" : (onchain?.total ?? participants.length)}
+                {loading
+                  ? "-"
+                  : `${onchain?.total ?? participants.length} / ${onchain?.max ?? 1}`}
               </span>
               <span className="text-[11px] text-[var(--app-foreground-muted)] mt-auto">
                 {loading ? "Loading..." : "Waiting for more entrants..."}
