@@ -10,7 +10,7 @@ import { Input } from "@/components/global/InputComponent";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import abi from "@/contracts/abi.json";
-import { useReadContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 
 export default function RafflePage() {
@@ -21,6 +21,8 @@ export default function RafflePage() {
     () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
     [],
   );
+  const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
 
   const [loading, setLoading] = useState(true);
   type Participant = { id: string; name?: string; address: string };
@@ -39,6 +41,7 @@ export default function RafflePage() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [starting, setStarting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { data: onchainRaffle, isPending: onchainLoading } = useReadContract({
     chainId: 84532,
@@ -48,6 +51,17 @@ export default function RafflePage() {
     args: [raffleCode],
     query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
   });
+
+  // Read on-chain participants to detect if current user already joined
+  const { data: onchainParticipants, refetch: refetchParticipants } =
+    useReadContract({
+      chainId: 84532,
+      abi,
+      address: CONTRACT_ADDRESS,
+      functionName: "raffleParticipants",
+      args: [raffleCode],
+      query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
+    });
 
   const onchain = useMemo(() => {
     if (!onchainRaffle)
@@ -95,6 +109,85 @@ export default function RafflePage() {
       ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
       : addr || "-";
 
+  const isCreator = useMemo(
+    () =>
+      address && onchain?.creator
+        ? address.toLowerCase() === onchain.creator.toLowerCase()
+        : false,
+    [address, onchain?.creator],
+  );
+
+  const alreadyJoined = useMemo(() => {
+    if (!address) return false;
+    const list =
+      (onchainParticipants as readonly `0x${string}`[] | undefined) || [];
+    return list.some((a) => a.toLowerCase() === address.toLowerCase());
+  }, [address, onchainParticipants]);
+
+  useEffect(() => {
+    const list =
+      (onchainParticipants as readonly `0x${string}`[] | undefined) || [];
+    setParticipants(
+      list.map((addr, idx) => ({
+        id: String(idx + 1),
+        address: addr as string,
+      })),
+    );
+  }, [onchainParticipants]);
+
+  const [joining, setJoining] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const handleJoin = async () => {
+    if (
+      !CONTRACT_ADDRESS ||
+      !raffleCode ||
+      joining ||
+      alreadyJoined ||
+      isCreator
+    )
+      return;
+    try {
+      setJoining(true);
+      await writeContractAsync({
+        abi,
+        address: CONTRACT_ADDRESS,
+        functionName: "joinRaffle",
+        args: [raffleCode],
+      });
+      await refetchParticipants?.();
+    } catch (e) {
+      console.error("joinRaffle failed", e);
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (
+      !CONTRACT_ADDRESS ||
+      !raffleCode ||
+      leaving ||
+      !alreadyJoined ||
+      isCreator
+    )
+      return;
+    try {
+      setLeaving(true);
+      await writeContractAsync({
+        abi,
+        address: CONTRACT_ADDRESS,
+        functionName: "leaveRaffle",
+        args: [raffleCode],
+      });
+      await refetchParticipants?.();
+    } catch (e) {
+      console.error("leaveRaffle failed", e);
+    } finally {
+      setLeaving(false);
+    }
+  };
+
   useEffect(() => {
     if (!raffleCode) return;
     setLoading(true);
@@ -114,13 +207,6 @@ export default function RafflePage() {
         participants: (data.participants as Participant[]) || [],
         host: data.host || undefined,
       });
-      setParticipants(
-        ((data.participants as Participant[]) || []).map((p, idx) => ({
-          id: p.id || String(idx + 1),
-          name: p.name,
-          address: p.address,
-        })),
-      );
       setTotalReward(data.totalReward || 0);
       setLoading(false);
     });
@@ -144,6 +230,29 @@ export default function RafflePage() {
       console.log("Raffle started for:", raffleCode);
     } finally {
       setStarting(false);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!raffleCode) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(raffleCode);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = raffleCode;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+      console.error("Copy code failed", e);
     }
   };
 
@@ -186,6 +295,37 @@ export default function RafflePage() {
               <p className="text-xs text-[var(--app-foreground-muted)]">
                 {raffle?.host?.name || "Hosted raffle"}
               </p>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--app-foreground-muted)]">
+                <span>Code:</span>
+                <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
+                  {raffleCode}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  shadow={false}
+                  className="px-2"
+                  onClick={handleCopyCode}
+                  aria-label="Copy raffle code"
+                  icon={
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4 h-4"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  }
+                >
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </div>
               {/* On-chain meta */}
               <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--app-foreground-muted)]">
                 {CONTRACT_ADDRESS ? (
@@ -227,6 +367,34 @@ export default function RafflePage() {
                 {onchainLoading ? "-" : (onchain?.balanceEth ?? "0")}
               </span>
               <div className="flex gap-2 mt-3">
+                {!isCreator && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleJoin}
+                      disabled={
+                        !isConnected || joining || alreadyJoined || isCreator
+                      }
+                    >
+                      {alreadyJoined
+                        ? "Joined"
+                        : joining
+                          ? "Joining..."
+                          : "Join Raffle"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleLeave}
+                      disabled={
+                        !isConnected || leaving || !alreadyJoined || isCreator
+                      }
+                    >
+                      {leaving ? "Leaving..." : "Leave Raffle"}
+                    </Button>
+                  </>
+                )}
                 {/* <Button
                   size="sm"
                   variant="outline"
@@ -234,14 +402,16 @@ export default function RafflePage() {
                 >
                   Deposit
                 </Button> */}
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={participants.length === 0 || starting}
-                  onClick={handleStartRaffle}
-                >
-                  {starting ? "Starting..." : "Start Raffle"}
-                </Button>
+                {isCreator && (
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={participants.length === 0 || starting}
+                    onClick={handleStartRaffle}
+                  >
+                    {starting ? "Starting..." : "Start Raffle"}
+                  </Button>
+                )}
               </div>
             </div>
           </Card>
@@ -270,7 +440,7 @@ export default function RafflePage() {
               >
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-[var(--app-foreground)]">
-                    {p.name}
+                    {p.name || shortAddr(p.address)}
                   </span>
                   <span className="text-[11px] font-mono text-[var(--app-foreground-muted)]">
                     {p.address}
