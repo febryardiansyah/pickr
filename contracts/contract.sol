@@ -33,7 +33,7 @@ contract OnchainRaffle {
     mapping(string => Raffle) public raffles;
     mapping(string => mapping(address => bool)) private hasJoined;
     mapping(string => address[]) private participants;
-    mapping(string => address) private winners;
+    mapping(string => address) public winners;
 
     // events
     event RaffleCreated(
