@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import BottomNavLayout from "@/layout/BottomNavLayout";
 import { Button } from "@/components/global/ButtonComponent";
 import { Input } from "@/components/global/InputComponent";
@@ -8,46 +8,86 @@ import { Card } from "@/components/global/CardComponent";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import abi from "@/contracts/abi.json";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { parseEther, parseEventLogs } from "viem";
 
 export default function CreateRafflePage() {
   const router = useRouter();
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+
+  const CONTRACT_ADDRESS = useMemo(
+    () => (process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined),
+    []
+  );
+
   const [form, setForm] = useState({
     title: "",
-    ticketPrice: "",
+    minParticipants: "",
     maxParticipants: "",
-    closeAt: "",
-    rewardSymbol: "USDC",
-    initialReward: "",
+    initialDepositEth: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const isValid = () => {
-    return (
-      form.title.trim() &&
-      Number(form.ticketPrice) > 0 &&
-      Number(form.maxParticipants) > 0 &&
-      (form.closeAt === "" || new Date(form.closeAt).getTime() > Date.now())
-    );
+    const min = Number(form.minParticipants);
+    const max = Number(form.maxParticipants);
+    const dep = Number(form.initialDepositEth);
+    return form.title.trim() && max > 0 && min > 0 && max > min && dep > 0;
   };
 
   const handleSubmit = async () => {
     if (!isValid()) return;
+    if (!CONTRACT_ADDRESS) {
+      console.error("Missing NEXT_PUBLIC_RAFFLE_CONTRACT env var");
+      return;
+    }
     try {
       setSubmitting(true);
+      const max = BigInt(Number(form.maxParticipants));
+      const min = BigInt(Number(form.minParticipants));
+      const value = parseEther(form.initialDepositEth);
+
+      const hash = await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: "createRaffle",
+        args: [max, min],
+        value,
+      });
+
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+      const logs = parseEventLogs({
+        abi,
+        logs: receipt.logs,
+        eventName: "RaffleCreated",
+      });
+
+      const createdLog = logs[0];
+      const hasArgsId = (x: unknown): x is { args: { id: bigint } } => {
+        if (!x || typeof x !== "object") return false;
+        const rec = x as Record<string, unknown>;
+        const args = rec.args as Record<string, unknown> | undefined;
+        return !!args && typeof args.id === "bigint";
+      };
+      const raffleId = hasArgsId(createdLog) ? createdLog.args.id : undefined;
+
       const docRef = await addDoc(collection(db, "raffles"), {
         title: form.title.trim(),
-        ticketPrice: Number(form.ticketPrice),
         maxParticipants: Number(form.maxParticipants),
-        closeAt: form.closeAt ? new Date(form.closeAt).toISOString() : null,
-        rewardSymbol: form.rewardSymbol,
-        initialReward: form.initialReward ? Number(form.initialReward) : 0,
-        totalReward: form.initialReward ? Number(form.initialReward) : 0,
+        minParticipants: Number(form.minParticipants),
+        initialDepositEth: form.initialDepositEth,
+        raffleId: raffleId !== undefined ? raffleId.toString() : null,
+        host: address ? { address } : null,
         participants: [],
         createdAt: serverTimestamp(),
         status: "open",
       });
+
       router.push(`/raffle/${docRef.id}`);
     } catch (e) {
       console.error("Error creating raffle:", e);
@@ -105,14 +145,6 @@ export default function CreateRafflePage() {
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <Input
-                label="Ticket Price (USDC)"
-                type="number"
-                placeholder="5"
-                min={0}
-                value={form.ticketPrice}
-                onChange={(e) => update("ticketPrice", e.target.value)}
-              />
-              <Input
                 label="Max Participants"
                 type="number"
                 placeholder="100"
@@ -120,22 +152,23 @@ export default function CreateRafflePage() {
                 value={form.maxParticipants}
                 onChange={(e) => update("maxParticipants", e.target.value)}
               />
+              <Input
+                label="Min Participants"
+                type="number"
+                placeholder="10"
+                min={1}
+                value={form.minParticipants}
+                onChange={(e) => update("minParticipants", e.target.value)}
+              />
             </div>
             <Input
-              label="Initial Reward (optional)"
+              label="Initial Deposit (ETH)"
               type="number"
-              placeholder="250"
+              placeholder="0.01"
               min={0}
-              value={form.initialReward}
-              onChange={(e) => update("initialReward", e.target.value)}
-              helperText="You can deposit more later."
-            />
-            <Input
-              label="Close At (optional)"
-              type="datetime-local"
-              value={form.closeAt}
-              onChange={(e) => update("closeAt", e.target.value)}
-              helperText="Raffle stops accepting entrants after this time."
+              value={form.initialDepositEth}
+              onChange={(e) => update("initialDepositEth", e.target.value)}
+              helperText="This will be sent as the initial prize pool."
             />
             <div className="flex justify-end pt-1">
               <Button
