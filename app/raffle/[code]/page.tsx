@@ -9,11 +9,18 @@ import { Dialog } from "@/components/global/DialogComponent";
 import { Input } from "@/components/global/InputComponent";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import abi from "@/contracts/abi.json";
+import { useReadContract } from "wagmi";
+import { formatEther } from "viem";
 
 export default function RafflePage() {
   const router = useRouter();
   const params = useParams();
   const raffleCode = useMemo(() => (params?.code as string) || "", [params]);
+  const CONTRACT_ADDRESS = useMemo(
+    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    [],
+  );
 
   const [loading, setLoading] = useState(true);
   type Participant = { id: string; name?: string; address: string };
@@ -28,10 +35,65 @@ export default function RafflePage() {
   const [participants, setParticipants] = useState<
     { id: string; name?: string; address: string }[]
   >([]);
-  const [totalReward, setTotalReward] = useState<number>(0); // USDC
+  const [totalReward, setTotalReward] = useState<number>(0);
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
   const [starting, setStarting] = useState(false);
+
+  const { data: onchainRaffle, isPending: onchainLoading } = useReadContract({
+    chainId: 84532,
+    abi,
+    address: CONTRACT_ADDRESS,
+    functionName: "raffles",
+    args: [raffleCode],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
+  });
+
+  const onchain = useMemo(() => {
+    if (!onchainRaffle)
+      return null as null | {
+        creator: `0x${string}`;
+        balanceEth: string;
+        statusIndex: number;
+        max: number;
+        min: number;
+        total: number;
+      };
+    try {
+      const tuple = onchainRaffle as readonly [
+        `0x${string}`,
+        bigint,
+        number | bigint,
+        bigint,
+        bigint,
+        bigint,
+      ];
+      const statusIndex = Number(tuple[2] ?? 0);
+      return {
+        creator: tuple[0],
+        balanceEth: formatEther(
+          typeof tuple[1] === "bigint" ? (tuple[1] as bigint) : BigInt(0),
+        ),
+        statusIndex,
+        max: typeof tuple[3] === "bigint" ? Number(tuple[3]) : 0,
+        min: typeof tuple[4] === "bigint" ? Number(tuple[4]) : 0,
+        total: typeof tuple[5] === "bigint" ? Number(tuple[5]) : 0,
+      };
+    } catch {
+      console.log("Failed to parse on-chain raffle data:", onchainRaffle);
+      return null;
+    }
+  }, [onchainRaffle]);
+
+  const statusText = useMemo(() => {
+    const map = ["ACTIVE", "INACTIVE", "STARTED"] as const;
+    return onchain ? (map[onchain.statusIndex] ?? "UNKNOWN") : undefined;
+  }, [onchain]);
+
+  const shortAddr = (addr?: string) =>
+    addr && addr.startsWith("0x")
+      ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
+      : addr || "-";
 
   useEffect(() => {
     if (!raffleCode) return;
@@ -57,7 +119,7 @@ export default function RafflePage() {
           id: p.id || String(idx + 1),
           name: p.name,
           address: p.address,
-        }))
+        })),
       );
       setTotalReward(data.totalReward || 0);
       setLoading(false);
@@ -117,11 +179,39 @@ export default function RafflePage() {
             </Button>
             <div className="flex flex-col gap-1">
               <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
-                {loading ? "Loading raffle..." : raffle?.title || `Raffle #${raffleCode}`}
+                {loading
+                  ? "Loading raffle..."
+                  : raffle?.title || `Raffle #${raffleCode}`}
               </h1>
               <p className="text-xs text-[var(--app-foreground-muted)]">
                 {raffle?.host?.name || "Hosted raffle"}
               </p>
+              {/* On-chain meta */}
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--app-foreground-muted)]">
+                {CONTRACT_ADDRESS ? (
+                  <>
+                    <span className="inline-flex items-center gap-1">
+                      Creator:{" "}
+                      <span className="font-mono">
+                        {onchainLoading ? "…" : shortAddr(onchain?.creator)}
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      Status: {onchainLoading ? "…" : statusText || "-"}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      Participants:{" "}
+                      {onchainLoading
+                        ? "…"
+                        : onchain
+                          ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
+                          : "-"}
+                    </span>
+                  </>
+                ) : (
+                  <span>Contract not configured</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -131,21 +221,19 @@ export default function RafflePage() {
           <Card className="p-4 col-span-2 sm:col-span-1">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--app-foreground-muted)]">
-                Total Rewards (USDC)
+                Total Rewards (ETH)
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {totalReward.toLocaleString(undefined, {
-                  minimumFractionDigits: 0,
-                })}
+                {onchainLoading ? "-" : (onchain?.balanceEth ?? "0")}
               </span>
               <div className="flex gap-2 mt-3">
-                <Button
+                {/* <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setDepositOpen(true)}
                 >
                   Deposit
-                </Button>
+                </Button> */}
                 <Button
                   size="sm"
                   variant="primary"
@@ -163,7 +251,7 @@ export default function RafflePage() {
                 Participants
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {loading ? "-" : participants.length}
+                {loading ? "-" : (onchain?.total ?? participants.length)}
               </span>
               <span className="text-[11px] text-[var(--app-foreground-muted)] mt-auto">
                 {loading ? "Loading..." : "Waiting for more entrants..."}
@@ -175,9 +263,9 @@ export default function RafflePage() {
         {/* Participants List */}
         <Card title="Participants" className="">
           <ul className="divide-y divide-[var(--app-card-border)] -mx-5 mt-[-1rem] mb-[-1rem]">
-      {participants.map((p) => (
+            {participants.map((p) => (
               <li
-        key={p.id}
+                key={p.id}
                 className="px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
               >
                 <div className="flex flex-col">
@@ -193,7 +281,7 @@ export default function RafflePage() {
                 </span>
               </li>
             ))}
-      {participants.length === 0 && !loading && (
+            {participants.length === 0 && !loading && (
               <li className="px-5 py-6 text-center text-sm text-[var(--app-foreground-muted)]">
                 No participants yet.
               </li>
@@ -207,11 +295,11 @@ export default function RafflePage() {
         open={depositOpen}
         onClose={() => setDepositOpen(false)}
         title="Deposit Rewards"
-        description="Add more USDC to the total prize pool."
+        description="Add more ETH to the total prize pool."
       >
         <div className="flex flex-col gap-3">
           <Input
-            label="Amount (USDC)"
+            label="Amount (ETH)"
             type="number"
             placeholder="100"
             value={depositAmount}

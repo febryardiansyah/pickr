@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { base } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
@@ -12,9 +12,9 @@ import WalletGate from "@/components/global/WalletGate";
 const queryClient = new QueryClient();
 
 const config = createConfig({
-  chains: [base],
+  chains: [baseSepolia],
   transports: {
-    [base.id]: http(),
+    [baseSepolia.id]: http(),
   },
   connectors: [
     injected(),
@@ -29,7 +29,7 @@ export function Providers(props: { children: ReactNode }) {
   return (
     <MiniKitProvider
       apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-      chain={base}
+      chain={baseSepolia}
       config={{
         appearance: {
           mode: "auto",

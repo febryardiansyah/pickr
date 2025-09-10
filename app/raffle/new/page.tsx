@@ -54,7 +54,6 @@ export default function CreateRafflePage() {
       const code = await generateUniqueCode();
 
        await writeContractAsync({
-        chainId: 84532,
         address: CONTRACT_ADDRESS,
         abi,
         functionName: "createRaffle",
