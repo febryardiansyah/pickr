@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAccount, useReadContract } from "wagmi";
 import { shortAddress } from "@/lib/utils";
 import abi from "@/contracts/abi.json";
+import type { TUserRaffleItem, RaffleStatus } from "@/type/contract";
 
 export default function HomeComponent() {
   const [showJoin, setShowJoin] = useState(false);
@@ -31,18 +32,7 @@ export default function HomeComponent() {
     query: { enabled: Boolean(CONTRACT_ADDRESS && address) },
   });
 
-  type UserRaffleItem = {
-    code: string;
-    creator: `0x${string}`;
-    balance: bigint;
-    status: number; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
-    max: number;
-    min: number;
-    total: number;
-    createdAt?: number;
-  };
-
-  const userRaffles: UserRaffleItem[] = useMemo(() => {
+  const userRaffles: TUserRaffleItem[] = useMemo(() => {
     if (!userRafflesRaw) return [];
     try {
       const [raffles, codes] = userRafflesRaw as unknown as [
@@ -61,7 +51,7 @@ export default function HomeComponent() {
         code: codes[i],
         creator: r[0],
         balance: r[1],
-        status: Number(r[2] ?? 0),
+        status: Number(r[2] ?? 0) as RaffleStatus,
         max: typeof r[3] === "bigint" ? Number(r[3]) : Number(r[3] || 0),
         min: typeof r[4] === "bigint" ? Number(r[4]) : Number(r[4] || 0),
         total: typeof r[5] === "bigint" ? Number(r[5]) : Number(r[5] || 0),
@@ -154,15 +144,15 @@ export default function HomeComponent() {
             <div className="text-sm text-[var(--app-foreground-muted)]">Connect your wallet to see your raffles.</div>
           )}
         </div>
-      </div>
-      <JoinRaffleDialog
-        open={showJoin}
-        onClose={() => setShowJoin(false)}
-        onSubmit={(code) => {
-          console.log("Joining raffle with code:", code);
-          router.push(`/raffle/${code.trim()}`);
-        }}
-      />
+        </div>
+        <JoinRaffleDialog
+          open={showJoin}
+          onClose={() => setShowJoin(false)}
+          onSubmit={(code) => {
+            console.log("Joining raffle with code:", code);
+            router.push(`/raffle/${code.trim()}`);
+          }}
+        />
     </>
   );
 }

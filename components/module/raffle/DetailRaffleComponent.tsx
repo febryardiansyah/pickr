@@ -13,14 +13,7 @@ import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
 import { ArrowLeft, Copy, LinkIcon, RefreshCcw } from "lucide-react";
-
-type Participant = { id: string; name?: string; address: string };
-type RaffleDoc = {
-  title: string;
-  totalReward: number;
-  participants: Participant[];
-  host?: { name?: string; address?: string };
-};
+import type { Participant, RaffleDoc } from "@/type/contract";
 
 export default function DetailRaffleComponent() {
   const router = useRouter();
