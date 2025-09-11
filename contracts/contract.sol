@@ -26,6 +26,7 @@ contract OnchainRaffle {
         uint256 maxParticipant;
         uint256 minParticipant;
         uint256 totalParticipant;
+        uint64 createdAt;
     }
 
     address public owner;
@@ -34,6 +35,7 @@ contract OnchainRaffle {
     mapping(string => mapping(address => bool)) private hasJoined;
     mapping(string => address[]) private participants;
     mapping(string => address) public winners;
+    mapping(address => string[]) private raffleCodesByCreator;
 
     // events
     event RaffleCreated(
@@ -74,6 +76,7 @@ contract OnchainRaffle {
         );
         require(minParticipant > 0, "Min participant must be greater than 0");
         require(bytes(code).length > 0, "Code is required");
+        require(!_isRaffleExist(code), "Code already used"); // added
 
         raffles[code] = Raffle(
             msg.sender,
@@ -81,8 +84,11 @@ contract OnchainRaffle {
             RaffleStatus.ACTIVE,
             maxParticipant,
             minParticipant,
-            0
+            0,
+            uint64(block.timestamp)
         );
+
+        raffleCodesByCreator[msg.sender].push(code);
 
         emit RaffleCreated(code, msg.sender, msg.value);
         return code;
@@ -218,6 +224,23 @@ contract OnchainRaffle {
 
     function _isRaffleExist(string memory code) private view returns (bool) {
         return raffles[code].creator != address(0);
+    }
+
+    function getUserRaffleCodes(address creator) external view returns (string[] memory) {
+        return raffleCodesByCreator[creator];
+    }
+
+    function getUserRaffles(address creator)
+        external
+        view
+        returns (Raffle[] memory, string[] memory)
+    {
+        string[] memory codes = raffleCodesByCreator[creator];
+        Raffle[] memory list = new Raffle[](codes.length);
+        for (uint256 i = 0; i < codes.length; i++) {
+            list[i] = raffles[codes[i]];
+        }
+        return (list, codes);
     }
 
     receive() external payable {

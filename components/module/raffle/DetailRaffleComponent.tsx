@@ -270,7 +270,6 @@ export default function DetailRaffleComponent() {
       });
       await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
       console.log("Raffle started for:", raffleCode);
-      // After starting, open winner selection dialog and animate selection
       if (participants.length > 0) {
         beginWinnerReveal();
       }
