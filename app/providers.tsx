@@ -19,8 +19,7 @@ const config = createConfig({
   connectors: [
     injected(),
     coinbaseWallet({
-      appName:
-        process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "Onchain Raffle",
+      appName: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "Pickr",
     }),
   ],
 });
