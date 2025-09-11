@@ -1,16 +1,80 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "../../global/ButtonComponent";
 import { JoinRaffleDialog } from "./JoinRaffleDialog";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract } from "wagmi";
 import { shortAddress } from "@/lib/utils";
+import abi from "@/contracts/abi.json";
 
 export default function HomeComponent() {
   const [showJoin, setShowJoin] = useState(false);
   const router = useRouter();
   const { address } = useAccount();
+
+  const CONTRACT_ADDRESS = useMemo(
+    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    [],
+  );
+
+  const {
+    data: userRafflesRaw,
+    isPending: loadingUserRaffles,
+    error: userRafflesError,
+  } = useReadContract({
+    chainId: 84532,
+    abi,
+    address: CONTRACT_ADDRESS,
+    functionName: "getUserRaffles",
+    args: [address as `0x${string}`],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && address) },
+  });
+
+  type UserRaffleItem = {
+    code: string;
+    creator: `0x${string}`;
+    balance: bigint;
+    status: number; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
+    max: number;
+    min: number;
+    total: number;
+    createdAt?: number;
+  };
+
+  const userRaffles: UserRaffleItem[] = useMemo(() => {
+    if (!userRafflesRaw) return [];
+    try {
+      const [raffles, codes] = userRafflesRaw as unknown as [
+        readonly [
+          `0x${string}`,
+          bigint,
+          number | bigint,
+          bigint,
+          bigint,
+          bigint,
+          bigint | number | undefined,
+        ][],
+        readonly string[],
+      ];
+      return raffles.map((r, i) => ({
+        code: codes[i],
+        creator: r[0],
+        balance: r[1],
+        status: Number(r[2] ?? 0),
+        max: typeof r[3] === "bigint" ? Number(r[3]) : Number(r[3] || 0),
+        min: typeof r[4] === "bigint" ? Number(r[4]) : Number(r[4] || 0),
+        total: typeof r[5] === "bigint" ? Number(r[5]) : Number(r[5] || 0),
+        createdAt: typeof r[6] === "bigint" ? Number(r[6]) : (r[6] as number | undefined),
+      }));
+    } catch (e) {
+      console.warn("Failed to parse getUserRaffles result", e, userRafflesRaw);
+      return [];
+    }
+  }, [userRafflesRaw]);
+
+  const statusText = (s?: number) =>
+    s === 0 ? "ACTIVE" : s === 1 ? "INACTIVE" : s === 2 ? "STARTED" : "-";
 
   return (
     <>
@@ -39,6 +103,56 @@ export default function HomeComponent() {
               Join Raffle
             </Button>
           </div>
+        </div>
+
+        {/* Your raffles (from getUserRaffles) */}
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-semibold">Your raffles</h2>
+            {!CONTRACT_ADDRESS && (
+              <span className="text-[11px] text-[var(--app-foreground-muted)]">Contract not configured</span>
+            )}
+          </div>
+          {address ? (
+            loadingUserRaffles ? (
+              <div className="text-sm text-[var(--app-foreground-muted)]">Loading…</div>
+            ) : userRafflesError ? (
+              <div className="text-sm text-red-500">Failed to load raffles</div>
+            ) : userRaffles.length === 0 ? (
+              <div className="text-sm text-[var(--app-foreground-muted)]">No raffles yet. Create one to get started.</div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {userRaffles.map((r) => (
+                  <li key={r.code} className="rounded-lg border border-[var(--app-card-border)] bg-[var(--app-card)] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <span className="font-mono truncate max-w-[12rem]">{r.code}</span>
+                          <span
+                            className={
+                              `px-2 py-0.5 rounded-full border text-[10px] ` +
+                              (r.status === 0
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                : r.status === 2
+                                  ? "bg-blue-500/10 text-blue-500 border-blue-500/30"
+                                  : "bg-amber-500/10 text-amber-500 border-amber-500/30")
+                            }
+                          >
+                            {statusText(r.status)}
+                          </span>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" shadow={false} onClick={() => router.push(`/raffle/${r.code}`)}>
+                        Open
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : (
+            <div className="text-sm text-[var(--app-foreground-muted)]">Connect your wallet to see your raffles.</div>
+          )}
         </div>
       </div>
       <JoinRaffleDialog
