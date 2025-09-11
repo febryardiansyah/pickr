@@ -265,7 +265,7 @@
 						"type": "uint256"
 					},
 					{
-						"internalType": "enum OnchainRaffle.RaffleStatus",
+						"internalType": "enum Pickr.RaffleStatus",
 						"name": "status",
 						"type": "uint8"
 					},
@@ -290,7 +290,7 @@
 						"type": "uint64"
 					}
 				],
-				"internalType": "struct OnchainRaffle.Raffle[]",
+				"internalType": "struct Pickr.Raffle[]",
 				"name": "",
 				"type": "tuple[]"
 			},
@@ -382,7 +382,7 @@
 				"type": "uint256"
 			},
 			{
-				"internalType": "enum OnchainRaffle.RaffleStatus",
+				"internalType": "enum Pickr.RaffleStatus",
 				"name": "status",
 				"type": "uint8"
 			},

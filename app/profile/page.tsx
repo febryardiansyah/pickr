@@ -4,28 +4,25 @@ import React from "react";
 import BottomNavLayout from "../../layout/BottomNavLayout";
 import { useAccount, useDisconnect } from "wagmi";
 import { Button } from "@/components/global/ButtonComponent";
+import { Card } from "@/components/global/CardComponent";
+import { shortAddress } from "@/lib/utils";
 
 export default function ProfilePage() {
   const { address, isConnected, chain } = useAccount();
   const { disconnect, isPending } = useDisconnect();
 
-  const shortAddress = address
-    ? `${address.slice(0, 6)}…${address.slice(-4)}`
-    : "";
-
   return (
     <BottomNavLayout>
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold">Profile</h1>
-
-        <div className="rounded-xl border border-[var(--app-border)] bg-[rgba(17,23,31,0.35)] p-4 backdrop-blur-xl">
+        <h1 className="text-xl font-semibold mt-4">Profile</h1>
+        <Card>
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm text-[var(--ock-text-foreground-muted)]">
                 Connected wallet {chain ? `on ${chain.name}` : ""}
               </p>
               <p className="text-base font-medium">
-                {isConnected ? shortAddress : "Not connected"}
+                {isConnected ? shortAddress(address) : "Not connected"}
               </p>
             </div>
             {isConnected && (
@@ -39,7 +36,7 @@ export default function ProfilePage() {
               </Button>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </BottomNavLayout>
   );
