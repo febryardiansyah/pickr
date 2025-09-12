@@ -14,6 +14,7 @@ import { formatEther } from "viem";
 import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
 import { ArrowLeft, Copy, LinkIcon, RefreshCcw } from "lucide-react";
 import type { Participant, RaffleDoc } from "@/type/contract";
+import { toast } from "react-toastify";
 
 export default function DetailRaffleComponent() {
   const router = useRouter();
@@ -158,13 +159,27 @@ export default function DetailRaffleComponent() {
       return;
     try {
       setJoining(true);
-      await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: "joinRaffle",
-        args: [raffleCode],
-      });
-      await refetchParticipants?.();
+      await toast.promise(
+        (async () => {
+          await writeContractAsync({
+            abi,
+            address: CONTRACT_ADDRESS,
+            functionName: "joinRaffle",
+            args: [raffleCode],
+          });
+          await refetchParticipants?.();
+        })(),
+        {
+          pending: "Joining raffle…",
+          success: "Joined raffle",
+          error: {
+            render({ data }) {
+              const err = data as unknown as { shortMessage?: string; message?: string };
+              return err?.shortMessage || err?.message || "Failed to join raffle";
+            },
+          },
+        },
+      );
     } catch (e) {
       console.error("joinRaffle failed", e);
     } finally {
@@ -183,13 +198,27 @@ export default function DetailRaffleComponent() {
       return;
     try {
       setLeaving(true);
-      await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: "leaveRaffle",
-        args: [raffleCode],
-      });
-      await refetchParticipants?.();
+      await toast.promise(
+        (async () => {
+          await writeContractAsync({
+            abi,
+            address: CONTRACT_ADDRESS,
+            functionName: "leaveRaffle",
+            args: [raffleCode],
+          });
+          await refetchParticipants?.();
+        })(),
+        {
+          pending: "Leaving raffle…",
+          success: "Left raffle",
+          error: {
+            render({ data }) {
+              const err = data as unknown as { shortMessage?: string; message?: string };
+              return err?.shortMessage || err?.message || "Failed to leave raffle";
+            },
+          },
+        },
+      );
     } catch (e) {
       console.error("leaveRaffle failed", e);
     } finally {
@@ -202,13 +231,27 @@ export default function DetailRaffleComponent() {
     if (!onchain || onchain.statusIndex !== 0) return; // only when ACTIVE
     try {
       setClosing(true);
-      await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: "closeRaffle",
-        args: [raffleCode],
-      });
-      await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+      await toast.promise(
+        (async () => {
+          await writeContractAsync({
+            abi,
+            address: CONTRACT_ADDRESS,
+            functionName: "closeRaffle",
+            args: [raffleCode],
+          });
+          await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+        })(),
+        {
+          pending: "Closing raffle…",
+          success: "Raffle closed",
+          error: {
+            render({ data }) {
+              const err = data as unknown as { shortMessage?: string; message?: string };
+              return err?.shortMessage || err?.message || "Failed to close raffle";
+            },
+          },
+        },
+      );
     } catch (e) {
       console.error("closeRaffle failed", e);
     } finally {
@@ -255,13 +298,27 @@ export default function DetailRaffleComponent() {
     if (!CONTRACT_ADDRESS || !raffleCode || !isCreator || starting) return;
     try {
       setStarting(true);
-      await writeContractAsync({
-        abi,
-        address: CONTRACT_ADDRESS,
-        functionName: "startRaffle",
-        args: [raffleCode],
-      });
-      await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+      await toast.promise(
+        (async () => {
+          await writeContractAsync({
+            abi,
+            address: CONTRACT_ADDRESS,
+            functionName: "startRaffle",
+            args: [raffleCode],
+          });
+          await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+        })(),
+        {
+          pending: "Starting raffle…",
+          success: "Raffle started",
+          error: {
+            render({ data }) {
+              const err = data as unknown as { shortMessage?: string; message?: string };
+              return err?.shortMessage || err?.message || "Failed to start raffle";
+            },
+          },
+        },
+      );
       console.log("Raffle started for:", raffleCode);
       if (participants.length > 0) {
         beginWinnerReveal();

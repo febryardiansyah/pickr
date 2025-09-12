@@ -8,6 +8,8 @@ import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { injected, coinbaseWallet } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import WalletGate from "@/components/global/WalletGate";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +45,7 @@ export function Providers(props: { children: ReactNode }) {
           <RainbowKitProvider>
             {props.children}
             <WalletGate />
+            <ToastContainer position="top-right" theme="dark" autoClose={3500} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
           </RainbowKitProvider>
         </QueryClientProvider>
       </WagmiProvider>
