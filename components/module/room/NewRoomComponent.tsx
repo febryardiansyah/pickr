@@ -12,6 +12,7 @@ import { useAccount, useWriteContract } from "wagmi";
 import { parseEther, keccak256, toHex } from "viem";
 import { generateUniqueCode } from "@/lib/utils";
 import { Eye, EyeClosed } from "lucide-react";
+import bcrypt from "bcryptjs";
 
 export default function NewRoomComponent() {
   const router = useRouter();
@@ -82,6 +83,12 @@ export default function NewRoomComponent() {
       const value = parseEther(form.initialDepositEth);
       const code = await generateUniqueCode();
 
+      // Hash password if it's a private room
+      let hashedPassword = null;
+      if (form.accessMode === "private" && form.password) {
+        hashedPassword = await bcrypt.hash(form.password, 10);
+      }
+
       const _doc = await addDoc(collection(db, "rooms"), {
         title: form.title.trim(),
         maxParticipants: Number(form.maxParticipants),
@@ -89,22 +96,25 @@ export default function NewRoomComponent() {
         totalWinners: Number(form.totalWinners),
         initialDepositEth: form.initialDepositEth,
         code: code,
-        host: address ? { address } : null,
+        creator: address ? address : null,
         participants: [],
-        password: form.accessMode === "private" ? form.password : null,
+        password: hashedPassword,
         accessMode: form.accessMode,
         createdAt: serverTimestamp(),
         status: "open",
       });
 
-      // Convert code to bytes32 hash for the contract
+      // Convert document ID to bytes32 hash for the contract
       const docIdHash = keccak256(toHex(_doc.id));
+
+      // Map accessMode to enum values: PUBLIC = 0, PRIVATE = 1
+      const accessModeEnum = form.accessMode === "public" ? 0 : 1;
 
       await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi,
         functionName: "createRoom",
-        args: [min, max, docIdHash],
+        args: [docIdHash, accessModeEnum, min, max],
         value,
       });
 

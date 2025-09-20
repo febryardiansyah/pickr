@@ -15,6 +15,16 @@
 	{
 		"inputs": [
 			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "enum IPickr.RoomAccessMode",
+				"name": "accessMode",
+				"type": "uint8"
+			},
+			{
 				"internalType": "uint256",
 				"name": "minParticipant",
 				"type": "uint256"
@@ -23,11 +33,6 @@
 				"internalType": "uint256",
 				"name": "maxParticipant",
 				"type": "uint256"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "docIdHash",
-				"type": "bytes32"
 			}
 		],
 		"name": "createRoom",
