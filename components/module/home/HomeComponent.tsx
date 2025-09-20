@@ -2,12 +2,12 @@
 
 import React, { useMemo, useState } from "react";
 import { Button } from "../../global/ButtonComponent";
-import { JoinRaffleDialog } from "./JoinRaffleDialog";
+import { JoinRoomDialog } from "./JoinRoomDialog";
 import { useRouter } from "next/navigation";
 import { useAccount, useReadContract } from "wagmi";
 import { shortAddress } from "@/lib/utils";
 import abi from "@/contracts/abi.json";
-import type { TUserRaffleItem, RaffleStatus } from "@/type/contract";
+import type { TUserRoomItem, RoomStatus } from "@/type/contract";
 
 export default function HomeComponent() {
   const [showJoin, setShowJoin] = useState(false);
@@ -15,27 +15,27 @@ export default function HomeComponent() {
   const { address } = useAccount();
 
   const CONTRACT_ADDRESS = useMemo(
-    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    () => process.env.NEXT_PUBLIC_ROOM_CONTRACT as `0x${string}` | undefined,
     [],
   );
 
   const {
-    data: userRafflesRaw,
-    isPending: loadingUserRaffles,
-    error: userRafflesError,
+    data: userRoomsRaw,
+    isPending: loadingUserRooms,
+    error: userRoomsError,
   } = useReadContract({
     chainId: 84532,
     abi,
     address: CONTRACT_ADDRESS,
-    functionName: "getUserRaffles",
+    functionName: "getUserRooms",
     args: [address as `0x${string}`],
     query: { enabled: Boolean(CONTRACT_ADDRESS && address) },
   });
 
-  const userRaffles: TUserRaffleItem[] = useMemo(() => {
-    if (!userRafflesRaw) return [];
+  const userRooms: TUserRoomItem[] = useMemo(() => {
+    if (!userRoomsRaw) return [];
     try {
-      const [raffles, codes] = userRafflesRaw as unknown as [
+      const [rooms, codes] = userRoomsRaw as unknown as [
         readonly [
           `0x${string}`,
           bigint,
@@ -47,21 +47,21 @@ export default function HomeComponent() {
         ][],
         readonly string[],
       ];
-      return raffles.map((r, i) => ({
+      return rooms.map((r, i) => ({
         code: codes[i],
         creator: r[0],
         balance: r[1],
-        status: Number(r[2] ?? 0) as RaffleStatus,
+        status: Number(r[2] ?? 0) as RoomStatus,
         max: typeof r[3] === "bigint" ? Number(r[3]) : Number(r[3] || 0),
         min: typeof r[4] === "bigint" ? Number(r[4]) : Number(r[4] || 0),
         total: typeof r[5] === "bigint" ? Number(r[5]) : Number(r[5] || 0),
         createdAt: typeof r[6] === "bigint" ? Number(r[6]) : (r[6] as number | undefined),
       }));
     } catch (e) {
-      console.warn("Failed to parse getUserRaffles result", e, userRafflesRaw);
+      console.warn("Failed to parse getUserRooms result", e, userRoomsRaw);
       return [];
     }
-  }, [userRafflesRaw]);
+  }, [userRoomsRaw]);
 
   const statusText = (s?: number) =>
     s === 0 ? "ACTIVE" : s === 1 ? "INACTIVE" : s === 2 ? "STARTED" : "-";
@@ -79,9 +79,9 @@ export default function HomeComponent() {
               className="w-full"
               variant="primary"
               shadow={false}
-              onClick={() => router.push("/raffle/new")}
+              onClick={() => router.push("/room/new")}
             >
-              Create Raffle
+              Create Room
             </Button>
             <Button
               size="lg"
@@ -90,29 +90,29 @@ export default function HomeComponent() {
               shadow={false}
               onClick={() => setShowJoin(true)}
             >
-              Join Raffle
+              Join Room
             </Button>
           </div>
         </div>
 
-        {/* Your raffles (from getUserRaffles) */}
+        {/* Your rooms (from getUserRooms) */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-semibold">Your raffles</h2>
+            <h2 className="text-base font-semibold">Your rooms</h2>
             {!CONTRACT_ADDRESS && (
               <span className="text-[11px] text-[var(--app-foreground-muted)]">Contract not configured</span>
             )}
           </div>
           {address ? (
-            loadingUserRaffles ? (
+            loadingUserRooms ? (
               <div className="text-sm text-[var(--app-foreground-muted)]">Loading…</div>
-            ) : userRafflesError ? (
-              <div className="text-sm text-red-500">Failed to load raffles</div>
-            ) : userRaffles.length === 0 ? (
-              <div className="text-sm text-[var(--app-foreground-muted)]">No raffles yet. Create one to get started.</div>
+            ) : userRoomsError ? (
+              <div className="text-sm text-red-500">Failed to load rooms</div>
+            ) : userRooms.length === 0 ? (
+              <div className="text-sm text-[var(--app-foreground-muted)]">No rooms yet. Create one to get started.</div>
             ) : (
               <ul className="flex flex-col gap-2">
-                {userRaffles.map((r) => (
+                {userRooms.map((r) => (
                   <li key={r.code} className="rounded-lg border border-[var(--app-card-border)] bg-[var(--app-card)] p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -132,7 +132,7 @@ export default function HomeComponent() {
                           </span>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" shadow={false} onClick={() => router.push(`/raffle/${r.code}`)}>
+                      <Button size="sm" variant="outline" shadow={false} onClick={() => router.push(`/room/${r.code}`)}>
                         Open
                       </Button>
                     </div>
@@ -141,16 +141,16 @@ export default function HomeComponent() {
               </ul>
             )
           ) : (
-            <div className="text-sm text-[var(--app-foreground-muted)]">Connect your wallet to see your raffles.</div>
+            <div className="text-sm text-[var(--app-foreground-muted)]">Connect your wallet to see your rooms.</div>
           )}
         </div>
         </div>
-        <JoinRaffleDialog
+        <JoinRoomDialog
           open={showJoin}
           onClose={() => setShowJoin(false)}
           onSubmit={(code) => {
-            console.log("Joining raffle with code:", code);
-            router.push(`/raffle/${code.trim()}`);
+            console.log("Joining room with code:", code);
+            router.push(`/room/${code.trim()}`);
           }}
         />
     </>

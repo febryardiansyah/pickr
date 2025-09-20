@@ -1,13 +1,13 @@
-export enum RaffleStatus {
+export enum RoomStatus {
   ACTIVE,
   INACTIVE,
   STARTED,
 }
 
-export type TRaffle = {
+export type TRoom = {
   creator: `0x${string}`;
   balance: bigint;
-  status: RaffleStatus;
+  status: RoomStatus;
   maxParticipant: bigint;
   minParticipant: bigint;
   totalParticipant: bigint;
@@ -16,18 +16,18 @@ export type TRaffle = {
 
 export type Participant = { id: string; name?: string; address: string };
 
-export type RaffleDoc = {
+export type RoomDoc = {
   title: string;
   totalReward: number;
   participants: Participant[];
   host?: { name?: string; address?: string };
 };
 
-export type TUserRaffleItem = {
+export type TUserRoomItem = {
   code: string;
   creator: `0x${string}`;
   balance: bigint;
-  status: RaffleStatus; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
+  status: RoomStatus; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
   max: number;
   min: number;
   total: number;

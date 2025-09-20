@@ -5,17 +5,17 @@ import { Dialog } from "@/components/global/DialogComponent";
 import { Input } from "@/components/global/InputComponent";
 import { Button } from "@/components/global/ButtonComponent";
 
-type JoinRaffleDialogProps = {
+type JoinRoomDialogProps = {
   open: boolean;
   onClose: () => void;
   onSubmit: (code: string) => void;
 };
 
-export function JoinRaffleDialog({
+export function JoinRoomDialog({
   open,
   onClose,
   onSubmit,
-}: JoinRaffleDialogProps) {
+}: JoinRoomDialogProps) {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -29,9 +29,9 @@ export function JoinRaffleDialog({
     }
     try {
       setLoading(true);
-      // Placeholder for join raffle logic (API call, navigation, etc.)
+      // Placeholder for join room logic (API call, navigation, etc.)
       await new Promise((res) => setTimeout(res, 650));
-      console.log("Joining raffle with code:", code);
+      console.log("Joining room with code:", code);
       onClose();
     } catch {
       setError("Failed to join. Try again.");
@@ -44,8 +44,8 @@ export function JoinRaffleDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Join Raffle"
-      description="Enter a valid raffle code to participate."
+      title="Join Room"
+      description="Enter a valid room code to participate."
       footer={
         <>
           <Button
@@ -72,7 +72,7 @@ export function JoinRaffleDialog({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
-          label="Raffle Code"
+          label="Room Code"
           placeholder="e.g. MOON-42XY"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}

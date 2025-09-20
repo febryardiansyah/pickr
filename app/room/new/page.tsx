@@ -2,12 +2,12 @@
 
 import React from "react";
 import BottomNavLayout from "@/layout/BottomNavLayout";
-import NewRaffleComponent from "@/components/module/raffle/NewRaffleComponent";
+import NewRoomComponent from "@/components/module/room/NewRoomComponent";
 
-export default function CreateRafflePage() {
+export default function CreateRoomPage() {
   return (
     <BottomNavLayout>
-      <NewRaffleComponent />
+      <NewRoomComponent />
     </BottomNavLayout>
   );
 }

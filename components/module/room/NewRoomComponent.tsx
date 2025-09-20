@@ -12,13 +12,13 @@ import { useAccount, useWriteContract } from "wagmi";
 import { parseEther } from "viem";
 import { generateUniqueCode } from "@/lib/utils";
 
-export default function NewRaffleComponent() {
+export default function NewRoomComponent() {
   const router = useRouter();
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
 
   const CONTRACT_ADDRESS = useMemo(
-    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    () => process.env.NEXT_PUBLIC_ROOM_CONTRACT as `0x${string}` | undefined,
     [],
   );
 
@@ -42,7 +42,7 @@ export default function NewRaffleComponent() {
   const handleSubmit = async () => {
     if (!isValid()) return;
     if (!CONTRACT_ADDRESS) {
-      console.error("Missing NEXT_PUBLIC_RAFFLE_CONTRACT env var");
+      console.error("Missing NEXT_PUBLIC_ROOM_CONTRACT env var");
       return;
     }
     try {
@@ -55,12 +55,12 @@ export default function NewRaffleComponent() {
       await writeContractAsync({
         address: CONTRACT_ADDRESS,
         abi,
-        functionName: "createRaffle",
+        functionName: "createRoom",
         args: [max, min, code],
         value,
       });
 
-      await setDoc(doc(db, "raffles", code), {
+      await setDoc(doc(db, "rooms", code), {
         title: form.title.trim(),
         maxParticipants: Number(form.maxParticipants),
         minParticipants: Number(form.minParticipants),
@@ -72,9 +72,9 @@ export default function NewRaffleComponent() {
         status: "open",
       });
 
-      router.push(`/raffle/${code}`);
+      router.push(`/room/${code}`);
     } catch (e) {
-      console.error("Error creating raffle:", e);
+      console.error("Error creating room:", e);
       setSubmitting(false);
     } finally {
       setSubmitting(false);
@@ -110,18 +110,18 @@ export default function NewRaffleComponent() {
           Back
         </Button>
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold tracking-wide">Create Raffle</h1>
+          <h1 className="text-xl font-semibold tracking-wide">Create Room</h1>
           <p className="text-xs text-[var(--app-foreground-muted)]">
-            Configure parameters then deploy your raffle.
+            Configure parameters then deploy your room.
           </p>
         </div>
       </div>
 
-      <Card title="Raffle Details" className="p-5">
+      <Card title="Room Details" className="p-5">
         <div className="flex flex-col gap-6">
           <Input
             label="Title"
-            placeholder="My awesome raffle"
+            placeholder="My awesome room"
             value={form.title}
             onChange={(e) => update("title", e.target.value)}
           />
@@ -159,7 +159,7 @@ export default function NewRaffleComponent() {
               disabled={!isValid() || submitting}
               onClick={handleSubmit}
             >
-              {submitting ? "Deploying..." : "Create Raffle"}
+              {submitting ? "Deploying..." : "Create Room"}
             </Button>
           </div>
         </div>

@@ -13,22 +13,22 @@ import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
 import { ArrowLeft, Copy, LinkIcon, RefreshCcw } from "lucide-react";
-import type { Participant, RaffleDoc } from "@/type/contract";
+import type { Participant, RoomDoc } from "@/type/contract";
 import { toast } from "react-toastify";
 
-export default function DetailRaffleComponent() {
+export default function DetailRoomComponent() {
   const router = useRouter();
   const params = useParams();
-  const raffleCode = useMemo(() => (params?.code as string) || "", [params]);
+  const roomCode = useMemo(() => (params?.code as string) || "", [params]);
   const CONTRACT_ADDRESS = useMemo(
-    () => process.env.NEXT_PUBLIC_RAFFLE_CONTRACT as `0x${string}` | undefined,
+    () => process.env.NEXT_PUBLIC_ROOM_CONTRACT as `0x${string}` | undefined,
     [],
   );
   const { address, isConnected } = useAccount();
   const { writeContractAsync } = useWriteContract();
 
   const [loading, setLoading] = useState(true);
-  const [raffle, setRaffle] = useState<RaffleDoc | null>(null);
+  const [room, setRoom] = useState<RoomDoc | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [totalReward, setTotalReward] = useState<number>(0);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -46,16 +46,16 @@ export default function DetailRaffleComponent() {
   const [refreshing, setRefreshing] = useState(false);
 
   const {
-    data: onchainRaffle,
+    data: onchainRoom,
     isPending: onchainLoading,
     refetch: refetchOnchain,
   } = useReadContract({
     chainId: 84532,
     abi,
     address: CONTRACT_ADDRESS,
-    functionName: "raffles",
-    args: [raffleCode],
-    query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
+    functionName: "rooms",
+    args: [roomCode],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
   });
 
   const { data: onchainParticipants, refetch: refetchParticipants } =
@@ -63,9 +63,9 @@ export default function DetailRaffleComponent() {
       chainId: 84532,
       abi,
       address: CONTRACT_ADDRESS,
-      functionName: "raffleParticipants",
-      args: [raffleCode],
-      query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
+      functionName: "roomParticipants",
+      args: [roomCode],
+      query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
     });
 
   const { data: onchainWinner, refetch: refetchWinner } = useReadContract({
@@ -73,12 +73,12 @@ export default function DetailRaffleComponent() {
     abi,
     address: CONTRACT_ADDRESS,
     functionName: "winners",
-    args: [raffleCode],
-    query: { enabled: Boolean(CONTRACT_ADDRESS && raffleCode) },
+    args: [roomCode],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
   });
 
   const onchain = useMemo(() => {
-    if (!onchainRaffle)
+    if (!onchainRoom)
       return null as null | {
         creator: `0x${string}`;
         balanceEth: string;
@@ -88,7 +88,7 @@ export default function DetailRaffleComponent() {
         total: number;
       };
     try {
-      const tuple = onchainRaffle as readonly [
+      const tuple = onchainRoom as readonly [
         `0x${string}`,
         bigint,
         number | bigint,
@@ -108,10 +108,10 @@ export default function DetailRaffleComponent() {
         total: typeof tuple[5] === "bigint" ? Number(tuple[5]) : 0,
       };
     } catch {
-      console.log("Failed to parse on-chain raffle data:", onchainRaffle);
+      console.log("Failed to parse on-chain room data:", onchainRoom);
       return null;
     }
-  }, [onchainRaffle]);
+  }, [onchainRoom]);
 
   const statusText = useMemo(() => {
     const map = ["ACTIVE", "INACTIVE", "STARTED"] as const;
@@ -151,7 +151,7 @@ export default function DetailRaffleComponent() {
   const handleJoin = async () => {
     if (
       !CONTRACT_ADDRESS ||
-      !raffleCode ||
+      !roomCode ||
       joining ||
       alreadyJoined ||
       isCreator
@@ -164,24 +164,24 @@ export default function DetailRaffleComponent() {
           await writeContractAsync({
             abi,
             address: CONTRACT_ADDRESS,
-            functionName: "joinRaffle",
-            args: [raffleCode],
+            functionName: "joinRoom",
+            args: [roomCode],
           });
           await refetchParticipants?.();
         })(),
         {
-          pending: "Joining raffle…",
-          success: "Joined raffle",
+          pending: "Joining room…",
+          success: "Joined room",
           error: {
             render({ data }) {
               const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to join raffle";
+              return err?.shortMessage || err?.message || "Failed to join room";
             },
           },
         },
       );
     } catch (e) {
-      console.error("joinRaffle failed", e);
+      console.error("joinRoom failed", e);
     } finally {
       setJoining(false);
     }
@@ -190,7 +190,7 @@ export default function DetailRaffleComponent() {
   const handleLeave = async () => {
     if (
       !CONTRACT_ADDRESS ||
-      !raffleCode ||
+      !roomCode ||
       leaving ||
       !alreadyJoined ||
       isCreator
@@ -203,31 +203,31 @@ export default function DetailRaffleComponent() {
           await writeContractAsync({
             abi,
             address: CONTRACT_ADDRESS,
-            functionName: "leaveRaffle",
-            args: [raffleCode],
+            functionName: "leaveRoom",
+            args: [roomCode],
           });
           await refetchParticipants?.();
         })(),
         {
-          pending: "Leaving raffle…",
-          success: "Left raffle",
+          pending: "Leaving room…",
+          success: "Left room",
           error: {
             render({ data }) {
               const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to leave raffle";
+              return err?.shortMessage || err?.message || "Failed to leave room";
             },
           },
         },
       );
     } catch (e) {
-      console.error("leaveRaffle failed", e);
+      console.error("leaveRoom failed", e);
     } finally {
       setLeaving(false);
     }
   };
 
-  const handleCloseRaffle = async () => {
-    if (!CONTRACT_ADDRESS || !raffleCode || !isCreator || closing) return;
+  const handleCloseRoom = async () => {
+    if (!CONTRACT_ADDRESS || !roomCode || !isCreator || closing) return;
     if (!onchain || onchain.statusIndex !== 0) return; // only when ACTIVE
     try {
       setClosing(true);
@@ -236,44 +236,44 @@ export default function DetailRaffleComponent() {
           await writeContractAsync({
             abi,
             address: CONTRACT_ADDRESS,
-            functionName: "closeRaffle",
-            args: [raffleCode],
+            functionName: "closeRoom",
+            args: [roomCode],
           });
           await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
         })(),
         {
-          pending: "Closing raffle…",
-          success: "Raffle closed",
+          pending: "Closing room…",
+          success: "Room closed",
           error: {
             render({ data }) {
               const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to close raffle";
+              return err?.shortMessage || err?.message || "Failed to close room";
             },
           },
         },
       );
     } catch (e) {
-      console.error("closeRaffle failed", e);
+      console.error("closeRoom failed", e);
     } finally {
       setClosing(false);
     }
   };
 
   useEffect(() => {
-    if (!raffleCode) return;
+    if (!roomCode) return;
     setLoading(true);
-    const ref = doc(db, "raffles", raffleCode);
+    const ref = doc(db, "rooms", roomCode);
     const unsub = onSnapshot(ref, (snap) => {
       if (!snap.exists()) {
-        setRaffle(null);
+        setRoom(null);
         setParticipants([]);
         setTotalReward(0);
         setLoading(false);
         return;
       }
-      const data = snap.data() as Partial<RaffleDoc>;
-      setRaffle({
-        title: data.title || `Raffle #${raffleCode}`,
+      const data = snap.data() as Partial<RoomDoc>;
+      setRoom({
+        title: data.title || `Room #${roomCode}`,
         totalReward: data.totalReward || 0,
         participants: (data.participants as Participant[]) || [],
         host: data.host || undefined,
@@ -282,20 +282,20 @@ export default function DetailRaffleComponent() {
       setLoading(false);
     });
     return () => unsub();
-  }, [raffleCode]);
+  }, [roomCode]);
 
   const handleDeposit = async () => {
     const v = Number(depositAmount);
-    if (!isNaN(v) && v > 0 && raffleCode) {
-      const ref = doc(db, "raffles", raffleCode);
+    if (!isNaN(v) && v > 0 && roomCode) {
+      const ref = doc(db, "rooms", roomCode);
       await updateDoc(ref, { totalReward: (totalReward || 0) + v });
       setDepositAmount("");
       setDepositOpen(false);
     }
   };
 
-  const handleStartRaffle = async () => {
-    if (!CONTRACT_ADDRESS || !raffleCode || !isCreator || starting) return;
+  const handleStartRoom = async () => {
+    if (!CONTRACT_ADDRESS || !roomCode || !isCreator || starting) return;
     try {
       setStarting(true);
       await toast.promise(
@@ -303,28 +303,28 @@ export default function DetailRaffleComponent() {
           await writeContractAsync({
             abi,
             address: CONTRACT_ADDRESS,
-            functionName: "startRaffle",
-            args: [raffleCode],
+            functionName: "startRoom",
+            args: [roomCode],
           });
           await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
         })(),
         {
-          pending: "Starting raffle…",
-          success: "Raffle started",
+          pending: "Starting room…",
+          success: "Room started",
           error: {
             render({ data }) {
               const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to start raffle";
+              return err?.shortMessage || err?.message || "Failed to start room";
             },
           },
         },
       );
-      console.log("Raffle started for:", raffleCode);
+      console.log("Room started for:", roomCode);
       if (participants.length > 0) {
         beginWinnerReveal();
       }
     } catch (e) {
-      console.error("startRaffle failed", e);
+      console.error("startRoom failed", e);
     } finally {
       setStarting(false);
     }
@@ -366,7 +366,7 @@ export default function DetailRaffleComponent() {
           abi,
           address: CONTRACT_ADDRESS!,
           functionName: "winnerSelected",
-          args: [raffleCode, winnerAddr],
+          args: [roomCode, winnerAddr],
         });
         await Promise.allSettled([
           refetchOnchain?.(),
@@ -386,13 +386,13 @@ export default function DetailRaffleComponent() {
   };
 
   const handleCopyCode = async () => {
-    if (!raffleCode) return;
+    if (!roomCode) return;
     try {
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(raffleCode);
+        await navigator.clipboard.writeText(roomCode);
       } else {
         const textarea = document.createElement("textarea");
-        textarea.value = raffleCode;
+        textarea.value = roomCode;
         textarea.style.position = "fixed";
         textarea.style.opacity = "0";
         document.body.appendChild(textarea);
@@ -453,8 +453,8 @@ export default function DetailRaffleComponent() {
             </Button>
             <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
               {loading
-                ? "Loading raffle..."
-                : raffle?.title || `Raffle #${raffleCode}`}
+                ? "Loading room..."
+                : room?.title || `Room #${roomCode}`}
             </h1>
             <span
               className={
@@ -472,13 +472,13 @@ export default function DetailRaffleComponent() {
             </span>
           </div>
 
-          <Card title="Raffle Info" className="p-4">
+          <Card title="Room Info" className="p-4">
             <div className="flex flex-col gap-3">
               {/* Code + Actions */}
               <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--app-foreground-muted)]">
                 <span>Code:</span>
                 <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
-                  {raffleCode}
+                  {roomCode}
                 </span>
                 <div className="ml-1 inline-flex items-center gap-1">
                   <Button
@@ -487,7 +487,7 @@ export default function DetailRaffleComponent() {
                     shadow={false}
                     className="px-2"
                     onClick={handleCopyCode}
-                    aria-label="Copy raffle code"
+                    aria-label="Copy room code"
                     icon={<Copy className="w-4 h-4" />}
                   >
                     {copied ? "Copied" : "Copy"}
@@ -585,7 +585,7 @@ export default function DetailRaffleComponent() {
                         ? "Joined"
                         : joining
                           ? "Joining..."
-                          : "Join Raffle"}
+                          : "Join Room"}
                     </Button>
                     <Button
                       size="sm"
@@ -595,7 +595,7 @@ export default function DetailRaffleComponent() {
                         !isConnected || leaving || !alreadyJoined || isCreator
                       }
                     >
-                      {leaving ? "Leaving..." : "Leave Raffle"}
+                      {leaving ? "Leaving..." : "Leave Room"}
                     </Button>
                   </>
                 )}
@@ -610,9 +610,9 @@ export default function DetailRaffleComponent() {
                         onchain.statusIndex !== 0 ||
                         onchain.total < onchain.min
                       }
-                      onClick={handleStartRaffle}
+                      onClick={handleStartRoom}
                     >
-                      {starting ? "Starting..." : "Start Raffle"}
+                      {starting ? "Starting..." : "Start Room"}
                     </Button>
                     <Button
                       size="sm"
@@ -620,9 +620,9 @@ export default function DetailRaffleComponent() {
                       disabled={
                         !onchain || onchain.statusIndex !== 0 || closing
                       }
-                      onClick={handleCloseRaffle}
+                      onClick={handleCloseRoom}
                     >
-                      {closing ? "Closing..." : "Close Raffle"}
+                      {closing ? "Closing..." : "Close Room"}
                     </Button>
                   </div>
                 )}

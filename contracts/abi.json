@@ -1,182 +1,13 @@
 [
 	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
 		"inputs": [
 			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "userClaim",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "claimAmount",
-				"type": "uint256"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
-		"name": "Claimed",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "creator",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "Deposited",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "JoinRaffle",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			}
-		],
-		"name": "LeaveRaffle",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "RaffleClosed",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "creator",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "initialDeposit",
-				"type": "uint256"
-			}
-		],
-		"name": "RaffleCreated",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "RaffleStarted",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			}
-		],
-		"name": "WinnerSelected",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "closeRaffle",
+		"name": "closeRoom",
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
@@ -185,37 +16,31 @@
 		"inputs": [
 			{
 				"internalType": "uint256",
-				"name": "maxParticipant",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
 				"name": "minParticipant",
 				"type": "uint256"
 			},
 			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "createRaffle",
-		"outputs": [
+				"internalType": "uint256",
+				"name": "maxParticipant",
+				"type": "uint256"
+			},
 			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
+		"name": "createRoom",
+		"outputs": [],
 		"stateMutability": "payable",
 		"type": "function"
 	},
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
 		"name": "deposit",
@@ -224,6 +49,240 @@
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "addr",
+				"type": "address"
+			}
+		],
+		"name": "ErrorAddressIsNotParticipant",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorCodeAlreadyUsed",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ErrorCodeIsRequired",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ErrorDepositRequired",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorInvalidWinner",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ErrorMaxParticipantLessThanMin",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "ErrorMinParticipantMustBeGreaterThanZero",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorNoBalance",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "caller",
+				"type": "address"
+			}
+		],
+		"name": "ErrorNotAuthorized",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorNotEnoughParticipant",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorRoomIsFull",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorRoomIsNotActive",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorRoomIsNotExist",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorRoomIsNotStarted",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorUserAlreadyJoinRoom",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorUserIsNotParticipant",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "ErrorUserIsTheRoomOwner",
+		"type": "error"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "joinRoom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "leaveRoom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "startRoom",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "winner",
+				"type": "address"
+			}
+		],
+		"name": "winnerSelected",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"stateMutability": "payable",
+		"type": "receive"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -231,12 +290,12 @@
 				"type": "address"
 			}
 		],
-		"name": "getUserRaffleCodes",
+		"name": "getUserRoomCodes",
 		"outputs": [
 			{
-				"internalType": "string[]",
+				"internalType": "bytes32[]",
 				"name": "",
-				"type": "string[]"
+				"type": "bytes32[]"
 			}
 		],
 		"stateMutability": "view",
@@ -250,7 +309,7 @@
 				"type": "address"
 			}
 		],
-		"name": "getUserRaffles",
+		"name": "getUserRooms",
 		"outputs": [
 			{
 				"components": [
@@ -265,8 +324,13 @@
 						"type": "uint256"
 					},
 					{
-						"internalType": "enum Pickr.RaffleStatus",
+						"internalType": "enum IPickr.RoomStatus",
 						"name": "status",
+						"type": "uint8"
+					},
+					{
+						"internalType": "enum IPickr.RoomAccessMode",
+						"name": "accessMode",
 						"type": "uint8"
 					},
 					{
@@ -290,43 +354,17 @@
 						"type": "uint64"
 					}
 				],
-				"internalType": "struct Pickr.Raffle[]",
+				"internalType": "struct IPickr.Room[]",
 				"name": "",
 				"type": "tuple[]"
 			},
 			{
-				"internalType": "string[]",
+				"internalType": "bytes32[]",
 				"name": "",
-				"type": "string[]"
+				"type": "bytes32[]"
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "joinRaffle",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "leaveRaffle",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -345,12 +383,12 @@
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
-		"name": "raffleParticipants",
+		"name": "roomParticipants",
 		"outputs": [
 			{
 				"internalType": "address[]",
@@ -364,12 +402,12 @@
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
-		"name": "raffles",
+		"name": "rooms",
 		"outputs": [
 			{
 				"internalType": "address",
@@ -382,8 +420,13 @@
 				"type": "uint256"
 			},
 			{
-				"internalType": "enum Pickr.RaffleStatus",
+				"internalType": "enum IPickr.RoomStatus",
 				"name": "status",
+				"type": "uint8"
+			},
+			{
+				"internalType": "enum IPickr.RoomAccessMode",
+				"name": "accessMode",
 				"type": "uint8"
 			},
 			{
@@ -413,40 +456,9 @@
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			}
-		],
-		"name": "startRaffle",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "code",
-				"type": "string"
-			},
-			{
-				"internalType": "address",
-				"name": "winner",
-				"type": "address"
-			}
-		],
-		"name": "winnerSelected",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "",
-				"type": "string"
+				"internalType": "bytes32",
+				"name": "docIdHash",
+				"type": "bytes32"
 			}
 		],
 		"name": "winners",
@@ -459,9 +471,5 @@
 		],
 		"stateMutability": "view",
 		"type": "function"
-	},
-	{
-		"stateMutability": "payable",
-		"type": "receive"
 	}
 ]

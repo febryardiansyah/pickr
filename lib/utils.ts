@@ -17,12 +17,12 @@ export async function generateUniqueCode(length = 6): Promise<string> {
   while (!unique) {
     code = generateCode(length);
 
-    const q = query(collection(db, "raffles"), where("code", "==", code));
+    const q = query(collection(db, "rooms"), where("code", "==", code));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
       unique = true;
-      await addDoc(collection(db, "raffles"), { code });
+      await addDoc(collection(db, "rooms"), { code });
     }
   }
 
