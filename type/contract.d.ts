@@ -24,12 +24,16 @@ export type RoomDoc = {
 };
 
 export type TUserRoomItem = {
+  accessMode: string;
   code: string;
-  creator: `0x${string}`;
-  balance: bigint;
-  status: RoomStatus; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
-  max: number;
-  min: number;
-  total: number;
-  createdAt?: number;
+  createdAt: Date | string;
+  creator: string;
+  initialDepositEth: string;
+  maxParticipants: number;
+  minParticipants: number;
+  participants: Participant[];
+  password: string;
+  status: string;
+  title: string;
+  totalWinners: number;
 };
