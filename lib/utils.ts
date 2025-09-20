@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 
 function generateCode(length = 6): string {
@@ -22,7 +22,7 @@ export async function generateUniqueCode(length = 6): Promise<string> {
 
     if (snapshot.empty) {
       unique = true;
-      await addDoc(collection(db, "rooms"), { code });
+      // await addDoc(collection(db, "rooms"), { code });
     }
   }
 

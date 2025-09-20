@@ -6,11 +6,12 @@ import { Input } from "@/components/global/InputComponent";
 import { Card } from "@/components/global/CardComponent";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { serverTimestamp, setDoc, doc } from "firebase/firestore";
+import { serverTimestamp, addDoc, collection } from "firebase/firestore";
 import abi from "@/contracts/abi.json";
 import { useAccount, useWriteContract } from "wagmi";
-import { parseEther } from "viem";
+import { parseEther, keccak256, toHex } from "viem";
 import { generateUniqueCode } from "@/lib/utils";
+import { Eye, EyeClosed } from "lucide-react";
 
 export default function NewRoomComponent() {
   const router = useRouter();
@@ -27,16 +28,45 @@ export default function NewRoomComponent() {
     minParticipants: "",
     maxParticipants: "",
     initialDepositEth: "",
+    password: "",
+    totalWinners: "1",
+    accessMode: "private", // public or private
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const update = (k: string, v: string) => {
+    setForm((f) => {
+      const newForm = { ...f, [k]: v };
+      // Clear password when switching to public mode
+      if (k === "accessMode" && v === "public") {
+        newForm.password = "";
+      }
+      return newForm;
+    });
+  };
 
   const isValid = () => {
     const min = Number(form.minParticipants);
     const max = Number(form.maxParticipants);
     const dep = Number(form.initialDepositEth);
-    return form.title.trim() && max > 0 && min > 0 && max > min && dep > 0;
+    const winners = Number(form.totalWinners);
+
+    const basicValidation =
+      form.title.trim() &&
+      max > 0 &&
+      min > 0 &&
+      max > min &&
+      dep > 0 &&
+      winners > 0 &&
+      winners <= max;
+
+    // If private mode, password is required
+    if (form.accessMode === "private") {
+      return basicValidation && form.password.trim().length > 0;
+    }
+
+    return basicValidation;
   };
 
   const handleSubmit = async () => {
@@ -52,24 +82,30 @@ export default function NewRoomComponent() {
       const value = parseEther(form.initialDepositEth);
       const code = await generateUniqueCode();
 
-      await writeContractAsync({
-        address: CONTRACT_ADDRESS,
-        abi,
-        functionName: "createRoom",
-        args: [max, min, code],
-        value,
-      });
-
-      await setDoc(doc(db, "rooms", code), {
+      const _doc = await addDoc(collection(db, "rooms"), {
         title: form.title.trim(),
         maxParticipants: Number(form.maxParticipants),
         minParticipants: Number(form.minParticipants),
+        totalWinners: Number(form.totalWinners),
         initialDepositEth: form.initialDepositEth,
         code: code,
         host: address ? { address } : null,
         participants: [],
+        password: form.accessMode === "private" ? form.password : null,
+        accessMode: form.accessMode,
         createdAt: serverTimestamp(),
         status: "open",
+      });
+
+      // Convert code to bytes32 hash for the contract
+      const docIdHash = keccak256(toHex(_doc.id));
+
+      await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi,
+        functionName: "createRoom",
+        args: [min, max, docIdHash],
+        value,
       });
 
       router.push(`/room/${code}`);
@@ -127,14 +163,6 @@ export default function NewRoomComponent() {
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <Input
-              label="Max Participants"
-              type="number"
-              placeholder="100"
-              min={1}
-              value={form.maxParticipants}
-              onChange={(e) => update("maxParticipants", e.target.value)}
-            />
-            <Input
               label="Min Participants"
               type="number"
               placeholder="10"
@@ -142,7 +170,24 @@ export default function NewRoomComponent() {
               value={form.minParticipants}
               onChange={(e) => update("minParticipants", e.target.value)}
             />
+            <Input
+              label="Max Participants"
+              type="number"
+              placeholder="100"
+              min={1}
+              value={form.maxParticipants}
+              onChange={(e) => update("maxParticipants", e.target.value)}
+            />
           </div>
+          <Input
+            label="Total Winners"
+            type="number"
+            placeholder="1"
+            min={1}
+            value={form.totalWinners}
+            onChange={(e) => update("totalWinners", e.target.value)}
+            helperText="Number of winners for this room."
+          />
           <Input
             label="Initial Deposit (ETH)"
             type="number"
@@ -152,6 +197,55 @@ export default function NewRoomComponent() {
             onChange={(e) => update("initialDepositEth", e.target.value)}
             helperText="This will be sent as the initial prize pool."
           />
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-[var(--app-foreground)]">
+              Access Mode
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="accessMode"
+                  value="private"
+                  checked={form.accessMode === "private"}
+                  onChange={(e) => update("accessMode", e.target.value)}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm">Private</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="accessMode"
+                  value="public"
+                  checked={form.accessMode === "public"}
+                  onChange={(e) => update("accessMode", e.target.value)}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <span className="text-sm">Public</span>
+              </label>
+            </div>
+          </div>
+          {form.accessMode === "private" && (
+            <div className="relative">
+              <Input
+                label="Room Password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter password"
+                value={form.password}
+                onChange={(e) => update("password", e.target.value)}
+                helperText="Password required to join this private room."
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-8 text-gray-700 hover:text-gray-800"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <Eye /> : <EyeClosed />}
+              </button>
+            </div>
+          )}
           <div className="flex justify-end pt-1">
             <Button
               size="md"
