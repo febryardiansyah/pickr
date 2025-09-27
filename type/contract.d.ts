@@ -1,35 +1,32 @@
-export enum RaffleStatus {
+export enum RoomStatus {
   ACTIVE,
   INACTIVE,
   STARTED,
 }
 
-export type TRaffle = {
+export type TRoom = {
   creator: `0x${string}`;
   balance: bigint;
-  status: RaffleStatus;
+  status: RoomStatus;
   maxParticipant: bigint;
   minParticipant: bigint;
   totalParticipant: bigint;
   createdAt?: bigint;
 };
 
-export type Participant = { id: string; name?: string; address: string };
+export type TParticipant = { id: string; name?: string; address: string };
 
-export type RaffleDoc = {
-  title: string;
-  totalReward: number;
-  participants: Participant[];
-  host?: { name?: string; address?: string };
-};
-
-export type TUserRaffleItem = {
+export type TUserRoomItem = {
+  accessMode: string;
   code: string;
-  creator: `0x${string}`;
-  balance: bigint;
-  status: RaffleStatus; // 0 ACTIVE, 1 INACTIVE, 2 STARTED
-  max: number;
-  min: number;
-  total: number;
-  createdAt?: number;
+  createdAt: Date | string;
+  creator: string;
+  initialDepositEth: string;
+  maxParticipants: number;
+  minParticipants: number;
+  participants: TParticipant[];
+  password: string;
+  status: string;
+  title: string;
+  totalWinners: number;
 };

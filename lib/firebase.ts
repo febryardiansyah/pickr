@@ -1,8 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseOptions } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// Firebase Web SDK initialization for client-side usage
-// Make sure to set the NEXT_PUBLIC_* env vars in your .env.local
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
