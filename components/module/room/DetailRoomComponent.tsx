@@ -1,19 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/global/ButtonComponent";
 import { Card } from "@/components/global/CardComponent";
 import { Dialog } from "@/components/global/DialogComponent";
 import { Input } from "@/components/global/InputComponent";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import abi from "@/contracts/abi.json";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { formatEther } from "viem";
-import { shortAddress, ZERO_ADDRESS } from "@/lib/utils";
+import { formatEther, keccak256, toHex } from "viem";
+import { getDocByCode, shortAddress, ZERO_ADDRESS } from "@/lib/utils";
 import { ArrowLeft, Copy, LinkIcon, RefreshCcw } from "lucide-react";
-import type { Participant, RoomDoc } from "@/type/contract";
+import type { TParticipant, TUserRoomItem } from "@/type/contract";
 import { toast } from "react-toastify";
 
 export default function DetailRoomComponent() {
@@ -28,8 +28,9 @@ export default function DetailRoomComponent() {
   const { writeContractAsync } = useWriteContract();
 
   const [loading, setLoading] = useState(true);
-  const [room, setRoom] = useState<RoomDoc | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [room, setRoom] = useState<TUserRoomItem | null>(null);
+  const [docId, setDocId] = useState<string>("");
+  const [participants, setParticipants] = useState<TParticipant[]>([]);
   const [totalReward, setTotalReward] = useState<number>(0);
   const [depositOpen, setDepositOpen] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -54,8 +55,8 @@ export default function DetailRoomComponent() {
     abi,
     address: CONTRACT_ADDRESS,
     functionName: "rooms",
-    args: [roomCode],
-    query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
+    args: [keccak256(toHex(docId)) as `0x${string}`],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && docId) },
   });
 
   const { data: onchainParticipants, refetch: refetchParticipants } =
@@ -64,8 +65,8 @@ export default function DetailRoomComponent() {
       abi,
       address: CONTRACT_ADDRESS,
       functionName: "roomParticipants",
-      args: [roomCode],
-      query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
+      args: [keccak256(toHex(docId)) as `0x${string}`],
+      query: { enabled: Boolean(CONTRACT_ADDRESS && docId) },
     });
 
   const { data: onchainWinner, refetch: refetchWinner } = useReadContract({
@@ -73,8 +74,8 @@ export default function DetailRoomComponent() {
     abi,
     address: CONTRACT_ADDRESS,
     functionName: "winners",
-    args: [roomCode],
-    query: { enabled: Boolean(CONTRACT_ADDRESS && roomCode) },
+    args: [keccak256(toHex(docId)) as `0x${string}`],
+    query: { enabled: Boolean(CONTRACT_ADDRESS && docId) },
   });
 
   const onchain = useMemo(() => {
@@ -92,20 +93,23 @@ export default function DetailRoomComponent() {
         `0x${string}`,
         bigint,
         number | bigint,
+        number | bigint,
         bigint,
         bigint,
         bigint,
       ];
       const statusIndex = Number(tuple[2] ?? 0);
+      const accessModeIndex = Number(tuple[3] ?? 0);
       return {
         creator: tuple[0],
         balanceEth: formatEther(
           typeof tuple[1] === "bigint" ? (tuple[1] as bigint) : BigInt(0),
         ),
         statusIndex,
-        max: typeof tuple[3] === "bigint" ? Number(tuple[3]) : 0,
-        min: typeof tuple[4] === "bigint" ? Number(tuple[4]) : 0,
-        total: typeof tuple[5] === "bigint" ? Number(tuple[5]) : 0,
+        accessModeIndex,
+        max: typeof tuple[4] === "bigint" ? Number(tuple[4]) : 0,
+        min: typeof tuple[5] === "bigint" ? Number(tuple[5]) : 0,
+        total: typeof tuple[6] === "bigint" ? Number(tuple[6]) : 0,
       };
     } catch {
       console.log("Failed to parse on-chain room data:", onchainRoom);
@@ -149,13 +153,7 @@ export default function DetailRoomComponent() {
   const [closing, setClosing] = useState(false);
 
   const handleJoin = async () => {
-    if (
-      !CONTRACT_ADDRESS ||
-      !roomCode ||
-      joining ||
-      alreadyJoined ||
-      isCreator
-    )
+    if (!CONTRACT_ADDRESS || !docId || joining || alreadyJoined || isCreator)
       return;
     try {
       setJoining(true);
@@ -165,7 +163,7 @@ export default function DetailRoomComponent() {
             abi,
             address: CONTRACT_ADDRESS,
             functionName: "joinRoom",
-            args: [roomCode],
+            args: [keccak256(toHex(docId)) as `0x${string}`],
           });
           await refetchParticipants?.();
         })(),
@@ -174,7 +172,10 @@ export default function DetailRoomComponent() {
           success: "Joined room",
           error: {
             render({ data }) {
-              const err = data as unknown as { shortMessage?: string; message?: string };
+              const err = data as unknown as {
+                shortMessage?: string;
+                message?: string;
+              };
               return err?.shortMessage || err?.message || "Failed to join room";
             },
           },
@@ -188,13 +189,7 @@ export default function DetailRoomComponent() {
   };
 
   const handleLeave = async () => {
-    if (
-      !CONTRACT_ADDRESS ||
-      !roomCode ||
-      leaving ||
-      !alreadyJoined ||
-      isCreator
-    )
+    if (!CONTRACT_ADDRESS || !docId || leaving || !alreadyJoined || isCreator)
       return;
     try {
       setLeaving(true);
@@ -204,7 +199,7 @@ export default function DetailRoomComponent() {
             abi,
             address: CONTRACT_ADDRESS,
             functionName: "leaveRoom",
-            args: [roomCode],
+            args: [keccak256(toHex(docId)) as `0x${string}`],
           });
           await refetchParticipants?.();
         })(),
@@ -213,8 +208,13 @@ export default function DetailRoomComponent() {
           success: "Left room",
           error: {
             render({ data }) {
-              const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to leave room";
+              const err = data as unknown as {
+                shortMessage?: string;
+                message?: string;
+              };
+              return (
+                err?.shortMessage || err?.message || "Failed to leave room"
+              );
             },
           },
         },
@@ -227,7 +227,7 @@ export default function DetailRoomComponent() {
   };
 
   const handleCloseRoom = async () => {
-    if (!CONTRACT_ADDRESS || !roomCode || !isCreator || closing) return;
+    if (!CONTRACT_ADDRESS || !docId || !isCreator || closing) return;
     if (!onchain || onchain.statusIndex !== 0) return; // only when ACTIVE
     try {
       setClosing(true);
@@ -237,17 +237,25 @@ export default function DetailRoomComponent() {
             abi,
             address: CONTRACT_ADDRESS,
             functionName: "closeRoom",
-            args: [roomCode],
+            args: [keccak256(toHex(docId)) as `0x${string}`],
           });
-          await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+          await Promise.allSettled([
+            refetchOnchain?.(),
+            refetchParticipants?.(),
+          ]);
         })(),
         {
           pending: "Closing room…",
           success: "Room closed",
           error: {
             render({ data }) {
-              const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to close room";
+              const err = data as unknown as {
+                shortMessage?: string;
+                message?: string;
+              };
+              return (
+                err?.shortMessage || err?.message || "Failed to close room"
+              );
             },
           },
         },
@@ -259,35 +267,38 @@ export default function DetailRoomComponent() {
     }
   };
 
-  useEffect(() => {
+  const getDoc = useCallback(async () => {
     if (!roomCode) return;
+
     setLoading(true);
-    const ref = doc(db, "rooms", roomCode);
-    const unsub = onSnapshot(ref, (snap) => {
-      if (!snap.exists()) {
-        setRoom(null);
-        setParticipants([]);
-        setTotalReward(0);
-        setLoading(false);
-        return;
-      }
-      const data = snap.data() as Partial<RoomDoc>;
+
+    const doc = await getDocByCode(roomCode);
+    console.log("Fetched room doc:", doc);
+
+    if (doc) {
       setRoom({
-        title: data.title || `Room #${roomCode}`,
-        totalReward: data.totalReward || 0,
-        participants: (data.participants as Participant[]) || [],
-        host: data.host || undefined,
+        ...doc,
       });
-      setTotalReward(data.totalReward || 0);
-      setLoading(false);
-    });
-    return () => unsub();
+      setDocId(doc.docId);
+      setTotalReward(parseInt(doc.initialDepositEth || "0"));
+    } else {
+      setRoom(null);
+      setDocId("");
+      setParticipants([]);
+      setTotalReward(0);
+    }
+
+    setLoading(false);
   }, [roomCode]);
+
+  useEffect(() => {
+    getDoc();
+  }, [roomCode, getDoc]);
 
   const handleDeposit = async () => {
     const v = Number(depositAmount);
-    if (!isNaN(v) && v > 0 && roomCode) {
-      const ref = doc(db, "rooms", roomCode);
+    if (!isNaN(v) && v > 0 && docId) {
+      const ref = doc(db, "rooms", docId);
       await updateDoc(ref, { totalReward: (totalReward || 0) + v });
       setDepositAmount("");
       setDepositOpen(false);
@@ -295,7 +306,7 @@ export default function DetailRoomComponent() {
   };
 
   const handleStartRoom = async () => {
-    if (!CONTRACT_ADDRESS || !roomCode || !isCreator || starting) return;
+    if (!CONTRACT_ADDRESS || !docId || !isCreator || starting) return;
     try {
       setStarting(true);
       await toast.promise(
@@ -304,22 +315,30 @@ export default function DetailRoomComponent() {
             abi,
             address: CONTRACT_ADDRESS,
             functionName: "startRoom",
-            args: [roomCode],
+            args: [keccak256(toHex(docId)) as `0x${string}`],
           });
-          await Promise.allSettled([refetchOnchain?.(), refetchParticipants?.()]);
+          await Promise.allSettled([
+            refetchOnchain?.(),
+            refetchParticipants?.(),
+          ]);
         })(),
         {
           pending: "Starting room…",
           success: "Room started",
           error: {
             render({ data }) {
-              const err = data as unknown as { shortMessage?: string; message?: string };
-              return err?.shortMessage || err?.message || "Failed to start room";
+              const err = data as unknown as {
+                shortMessage?: string;
+                message?: string;
+              };
+              return (
+                err?.shortMessage || err?.message || "Failed to start room"
+              );
             },
           },
         },
       );
-      console.log("Room started for:", roomCode);
+      console.log("Room started for:", docId);
       if (participants.length > 0) {
         beginWinnerReveal();
       }
@@ -366,7 +385,7 @@ export default function DetailRoomComponent() {
           abi,
           address: CONTRACT_ADDRESS!,
           functionName: "winnerSelected",
-          args: [roomCode, winnerAddr],
+          args: [keccak256(toHex(docId)) as `0x${string}`, winnerAddr],
         });
         await Promise.allSettled([
           refetchOnchain?.(),
@@ -444,17 +463,13 @@ export default function DetailRoomComponent() {
               shadow={false}
               onClick={() => router.push("/")}
               aria-label="Go back"
-              icon={
-                <ArrowLeft className="w-4 h-4" />
-              }
+              icon={<ArrowLeft className="w-4 h-4" />}
               className="px-2"
             >
               Back
             </Button>
             <h1 className="text-xl font-semibold tracking-wide text-[var(--app-foreground)]">
-              {loading
-                ? "Loading room..."
-                : room?.title || `Room #${roomCode}`}
+              {loading ? "Loading room..." : room?.title || `Room #${roomCode}`}
             </h1>
             <span
               className={

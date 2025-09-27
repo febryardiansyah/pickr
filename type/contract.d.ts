@@ -14,14 +14,7 @@ export type TRoom = {
   createdAt?: bigint;
 };
 
-export type Participant = { id: string; name?: string; address: string };
-
-export type RoomDoc = {
-  title: string;
-  totalReward: number;
-  participants: Participant[];
-  host?: { name?: string; address?: string };
-};
+export type TParticipant = { id: string; name?: string; address: string };
 
 export type TUserRoomItem = {
   accessMode: string;
@@ -31,7 +24,7 @@ export type TUserRoomItem = {
   initialDepositEth: string;
   maxParticipants: number;
   minParticipants: number;
-  participants: Participant[];
+  participants: TParticipant[];
   password: string;
   status: string;
   title: string;
