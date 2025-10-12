@@ -9,7 +9,7 @@ import { injected, coinbaseWallet } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import WalletGate from "@/components/global/WalletGate";
 import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { farcasterMiniApp as miniAppConnector } from '@farcaster/miniapp-wagmi-connector'
 
 const queryClient = new QueryClient();
 
@@ -23,6 +23,7 @@ const config = createConfig({
     coinbaseWallet({
       appName: process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "Pickr",
     }),
+    miniAppConnector()
   ],
 });
 
