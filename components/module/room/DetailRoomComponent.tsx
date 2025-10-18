@@ -78,7 +78,7 @@ export default function DetailRoomComponent() {
     query: { enabled: Boolean(CONTRACT_ADDRESS && docId) },
   });
 
-  const onchain = useMemo(() => {
+  const roomOnchainData = useMemo(() => {
     if (!onchainRoom)
       return null as null | {
         creator: `0x${string}`;
@@ -119,15 +119,15 @@ export default function DetailRoomComponent() {
 
   const statusText = useMemo(() => {
     const map = ["ACTIVE", "INACTIVE", "STARTED"] as const;
-    return onchain ? (map[onchain.statusIndex] ?? "UNKNOWN") : undefined;
-  }, [onchain]);
+    return roomOnchainData ? (map[roomOnchainData.statusIndex] ?? "UNKNOWN") : undefined;
+  }, [roomOnchainData]);
 
   const isCreator = useMemo(
     () =>
-      address && onchain?.creator
-        ? address.toLowerCase() === onchain.creator.toLowerCase()
+      address && roomOnchainData?.creator
+        ? address.toLowerCase() === roomOnchainData.creator.toLowerCase()
         : false,
-    [address, onchain?.creator],
+    [address, roomOnchainData?.creator],
   );
 
   const alreadyJoined = useMemo(() => {
@@ -228,11 +228,13 @@ export default function DetailRoomComponent() {
 
   const handleCloseRoom = async () => {
     if (!CONTRACT_ADDRESS || !docId || !isCreator || closing) return;
-    if (!onchain || onchain.statusIndex !== 0) return; // only when ACTIVE
+    if (!roomOnchainData || roomOnchainData.statusIndex !== 0) return; // only when ACTIVE
     try {
       setClosing(true);
       await toast.promise(
         (async () => {
+          const ref = doc(db, "rooms", docId);
+          await updateDoc(ref, { status: "closed", initialDepositEth: "0" });
           await writeContractAsync({
             abi,
             address: CONTRACT_ADDRESS,
@@ -495,6 +497,10 @@ export default function DetailRoomComponent() {
                 <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
                   {roomCode}
                 </span>
+                <span>Access Mode:</span>
+                <span className="font-mono px-2 py-0.5 rounded border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-foreground)]">
+                  {room?.accessMode?.toUpperCase() || "Public"}
+                </span>
                 <div className="ml-1 inline-flex items-center gap-1">
                   <Button
                     variant="ghost"
@@ -547,22 +553,22 @@ export default function DetailRoomComponent() {
                       <span className="inline-flex items-center gap-1">
                         Creator:{" "}
                         <a
-                          href={`https://sepolia.basescan.org/address/${onchain?.creator}`}
+                          href={`https://sepolia.basescan.org/address/${roomOnchainData?.creator}`}
                           target="_blank"
                           rel="noreferrer"
                           className="font-mono underline-offset-2 hover:underline text-[var(--app-foreground)]"
                         >
                           {onchainLoading
                             ? "…"
-                            : shortAddress(onchain?.creator)}
+                            : shortAddress(roomOnchainData?.creator)}
                         </a>
                       </span>
                       <span className="inline-flex items-center gap-1">
                         Participants:{" "}
                         {onchainLoading
                           ? "…"
-                          : onchain
-                            ? `${onchain.total}/${onchain.max} (min ${onchain.min})`
+                          : roomOnchainData
+                            ? `${roomOnchainData.total}/${roomOnchainData.max} (min ${roomOnchainData.min})`
                             : "-"}
                       </span>
                     </div>
@@ -583,7 +589,7 @@ export default function DetailRoomComponent() {
                 Total Rewards (ETH)
               </span>
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
-                {onchainLoading ? "-" : (onchain?.balanceEth ?? "0")}
+                {onchainLoading ? "-" : (roomOnchainData?.balanceEth ?? "0")}
               </span>
               <div className="flex gap-2 mt-3">
                 {!isCreator && (
@@ -621,9 +627,9 @@ export default function DetailRoomComponent() {
                       variant="primary"
                       disabled={
                         starting ||
-                        !onchain ||
-                        onchain.statusIndex !== 0 ||
-                        onchain.total < onchain.min
+                        !roomOnchainData ||
+                        roomOnchainData.statusIndex !== 0 ||
+                        roomOnchainData.total < roomOnchainData.min
                       }
                       onClick={handleStartRoom}
                     >
@@ -633,7 +639,7 @@ export default function DetailRoomComponent() {
                       size="sm"
                       variant="secondary"
                       disabled={
-                        !onchain || onchain.statusIndex !== 0 || closing
+                        !roomOnchainData || roomOnchainData.statusIndex !== 0 || closing
                       }
                       onClick={handleCloseRoom}
                     >
@@ -652,7 +658,7 @@ export default function DetailRoomComponent() {
               <span className="text-2xl font-semibold text-[var(--app-foreground)]">
                 {loading
                   ? "-"
-                  : `${onchain?.total ?? participants.length} / ${onchain?.max ?? 1}`}
+                  : `${roomOnchainData?.total ?? participants.length} / ${roomOnchainData?.max ?? 1}`}
               </span>
               <span className="text-[11px] text-[var(--app-foreground-muted)] mt-auto">
                 {loading ? "Loading..." : "Waiting for more entrants..."}
